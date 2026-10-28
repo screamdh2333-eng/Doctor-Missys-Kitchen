@@ -1,0 +1,2056 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Doctor &amp; Missy 的厨房</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="狗狗厨房">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef1ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141a17" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>html{-webkit-text-size-adjust:100%}body{margin:0;padding:0}img{max-width:100%}[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px)}</style>
+<style>
+/* 布局：手机单列。顶部日期条，中间一屏一个任务，底部四个标签。克数用秤读数式的窄体数字。 */
+:root{
+  --bg:#eef1ec; --card:#fbfcfa; --sunk:#e3e8e1; --line:#cfd8cd;
+  --ink:#1d2620; --ink2:#55625a; --ink3:#7d887f;
+  --accent:#2d5a4a; --accent-ink:#ffffff; --accent-soft:#d9e6df;
+  --doc:#9a5b14; --doc-soft:#f3e4cf;       /* Doctor：喜乐蒂的貂色 */
+  --mis:#3b5875; --mis-soft:#dbe4ee;       /* Missy：边牧的石板蓝 */
+  --ok:#2f7a45; --ok-soft:#dcefe1; --warn:#a2650b; --warn-soft:#f6e7c9; --bad:#b23a2e; --bad-soft:#f6dcd8;
+  --num:"SF Pro Display","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+  --txt:"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --card:#1c2420; --sunk:#232d28; --line:#33403a;
+  --ink:#e6ece8; --ink2:#a9b6ae; --ink3:#7f8c85;
+  --accent:#7fbfa4; --accent-ink:#0f1a15; --accent-soft:#24392f;
+  --doc:#e2a85c; --doc-soft:#3a2c1a; --mis:#97b5d4; --mis-soft:#223040;
+  --ok:#7ccf93; --ok-soft:#1f3527; --warn:#e8b45a; --warn-soft:#3a2f17; --bad:#f08e82; --bad-soft:#40211d;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --card:#1c2420; --sunk:#232d28; --line:#33403a;
+  --ink:#e6ece8; --ink2:#a9b6ae; --ink3:#7f8c85;
+  --accent:#7fbfa4; --accent-ink:#0f1a15; --accent-soft:#24392f;
+  --doc:#e2a85c; --doc-soft:#3a2c1a; --mis:#97b5d4; --mis-soft:#223040;
+  --ok:#7ccf93; --ok-soft:#1f3527; --warn:#e8b45a; --warn-soft:#3a2f17; --bad:#f08e82; --bad-soft:#40211d;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--txt);font-size:15px;line-height:1.55}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:0 calc(88px + env(safe-area-inset-bottom,0px))}
+
+/* 顶部 */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+  margin-inline:-16px;padding:10px 16px 9px}
+.top h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.02em}
+.top .sub{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;color:var(--ink2);margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.chicken{background:var(--warn-soft);color:var(--warn)}
+.pill.pork{background:var(--bad-soft);color:var(--bad)}
+.sync{margin-left:auto;font-size:12px;color:var(--ink3)}
+
+/* 标签栏 */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{background:none;border:0;padding:10px 0 11px;font-size:14px;color:var(--ink3);cursor:pointer;position:relative}
+.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
+.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+.tabs .dot{position:absolute;top:7px;margin-left:2px;width:7px;height:7px;border-radius:50%;background:var(--bad)}
+
+section{margin-top:18px}
+h2{font-size:13px;letter-spacing:.08em;color:var(--ink2);font-weight:600;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.note{font-size:13px;color:var(--ink2)}
+.muted{color:var(--ink3)}
+.stack{display:grid;gap:10px}
+
+/* 提醒 */
+.alert{display:grid;grid-template-columns:4px 1fr;gap:0 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px 11px 0;overflow:hidden}
+.alert::before{content:"";border-radius:0 3px 3px 0;background:var(--warn)}
+.alert.bad::before{background:var(--bad)} .alert.info::before{background:var(--accent)}
+.alert b{font-weight:700}
+.alert .act{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px}
+
+/* 秤读数 */
+.num{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600;letter-spacing:.01em}
+.big{font-size:26px;line-height:1}
+.unit{font-size:13px;color:var(--ink2);margin-left:2px;font-family:var(--txt);font-weight:400}
+
+/* 一起做 */
+.cook{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.cook .cell{background:var(--sunk);border-radius:10px;padding:10px 12px}
+.cook .lbl{font-size:12px;color:var(--ink2)}
+.cook select{max-width:100%}
+
+/* 狗卡片 */
+.dogs{display:grid;gap:12px}
+@media (min-width:640px){.dogs{grid-template-columns:1fr 1fr}}
+.dog{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:0}
+.dog header{display:flex;align-items:baseline;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.dog.doctor header{background:var(--doc-soft)} .dog.missy header{background:var(--mis-soft)}
+.dog header .name{font-weight:700;font-size:16px}
+.dog.doctor .name{color:var(--doc)} .dog.missy .name{color:var(--mis)}
+.dog header .kc{margin-left:auto;font-size:13px;color:var(--ink2)}
+.rows{list-style:none;margin:0;padding:4px 14px}
+.rows li{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.rows li:last-child{border-bottom:0}
+.rows .what{min-width:0}
+.rows .how{font-size:12px;color:var(--ink3);display:block}
+.rows .amt{text-align:right;white-space:nowrap}
+.rows .amt .num{font-size:20px}
+.rows .per{display:block;font-size:12px;color:var(--ink3);text-align:right}
+.box{margin:0 14px 12px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--sunk)}
+.box .t{font-size:12px;color:var(--ink2);margin-bottom:4px}
+.box .items{display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-block;padding:2px 9px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-size:13px}
+.tag.key{border-color:var(--accent);color:var(--accent);font-weight:600}
+.dog footer{display:flex;gap:8px;padding:0 14px 14px}
+
+/* 按钮 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:9px 14px;cursor:pointer;font-weight:600;font-size:14px;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.wide{width:100%;min-height:50px;font-size:16px}
+.btn.small{min-height:32px;padding:5px 11px;font-size:13px}
+.btn.ghost{background:transparent}
+.btn:focus-visible,.tabs button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.done{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:12px 14px;font-weight:600}
+
+/* 表单 */
+select,input[type=number],input[type=text]{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-height:38px}
+input[type=number]{width:96px;text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:17px;font-weight:600}
+.field{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px 12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.field:last-child{border-bottom:0}
+.field .l{min-width:0}
+.field .l small{display:block;color:var(--ink3);font-size:12px}
+.seg{display:inline-flex;background:var(--sunk);border-radius:10px;padding:3px;gap:3px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--card);font-weight:700;box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:4px 11px;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+
+/* 检查 */
+.meter{display:grid;grid-template-columns:5.2em 1fr 4.6em;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.meter:last-child{border-bottom:0}
+.meter .nm{font-size:14px}
+.meter .bar{position:relative;height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.meter .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--ok)}
+.meter .fill.thin{background:var(--warn)} .meter .fill.low{background:var(--bad)} .meter .fill.high{background:var(--bad)}
+.meter .tick{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
+.meter .v{text-align:right}
+.meter .v small{display:block;font-size:11px;color:var(--ink3);font-family:var(--txt);font-weight:400;white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink3);margin-top:8px}
+.st{font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.st.ok{background:var(--ok-soft);color:var(--ok)} .st.thin,.st.warn{background:var(--warn-soft);color:var(--warn)}
+.st.low,.st.high{background:var(--bad-soft);color:var(--bad)} .st.info{background:var(--sunk);color:var(--ink2)}
+.days{list-style:none;margin:0;padding:0}
+.days li{display:grid;grid-template-columns:4.2em 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.days li:last-child{border-bottom:0}
+
+/* 做块 */
+.batch h3{margin:0;font-size:16px}
+.batch .head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.recipe{list-style:none;margin:8px 0;padding:0;display:grid;gap:2px}
+.recipe li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.recipe li:last-child{border-bottom:0}
+.steps{margin:8px 0 0;padding-left:1.3em;font-size:14px;color:var(--ink2)}
+.steps li{margin:3px 0}
+.rec{border-color:var(--accent)}
+.treat{margin:0 14px 10px;padding:9px 11px;border-radius:10px;background:var(--warn-soft);font-size:14px}
+.ratio{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:var(--accent-soft);font-size:14px}
+.status{list-style:none;margin:0;padding:0}
+.status li{display:grid;grid-template-columns:5.5em 1fr auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.status li:last-child{border-bottom:0}
+.status .nm{font-weight:700}
+.status .tx{font-size:14px;color:var(--ink2);min-width:0}
+.shop{margin:0;padding-left:1.2em;columns:2;column-gap:20px}
+.shop li{padding:2px 0;break-inside:avoid}
+@media (max-width:420px){.shop{columns:1}}
+details.fold>summary{cursor:pointer;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+details.fold>summary::after{content:"展开";font-size:12px;font-weight:400;color:var(--ink3)}
+details.fold[open]>summary::after{content:"收起"}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold[open]>summary{border-radius:12px 12px 0 0;border-bottom:0}
+details.fold>.card,details.fold>section.card{border-radius:0 0 12px 12px;margin:0}
+details.mini{border-top:1px solid var(--line);padding:9px 0 0;margin-top:4px}
+details.mini>summary{cursor:pointer;font-size:14px;color:var(--ink2)}
+details.mini+details.mini{margin-top:8px}
+.recsteps{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:2px}
+.recsteps li{display:grid;grid-template-columns:1.4em 1fr auto;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--line);color:var(--ink3)}
+.recsteps li:last-child{border-bottom:0}
+.recsteps li b{font-weight:600}
+.recsteps li small{display:block;font-size:12px}
+.recsteps li.done{color:var(--ink)} .recsteps li.done .mk{color:var(--ok)}
+.recsteps li.cur{color:var(--ink)} .recsteps li.cur .mk{color:var(--accent);font-weight:700}
+.recsteps .when{font-size:12px;color:var(--ink3);white-space:nowrap}
+.pbox{width:100%;border-collapse:collapse;font-size:14px;min-width:300px}
+.pbox th,.pbox td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+.pbox thead th{font-size:13px;font-weight:700;border-bottom:2px solid var(--line)}
+.pbox thead .d{color:var(--doc)} .pbox thead .m{color:var(--mis)}
+.pbox tbody th{white-space:nowrap;font-weight:700;width:4.5em}
+.pbox tbody th small{display:block;font-weight:400;font-size:11px;color:var(--ink3)}
+.pbox tr.now{background:var(--accent-soft)}
+.pbox b{color:var(--accent)}
+.stock{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px;background:var(--sunk);border-radius:10px;padding:9px 12px;margin:8px 0}
+.stock .btn{white-space:nowrap}
+.stock .gauge{grid-column:1 / -1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.stock .gauge i{display:block;height:100%;background:var(--accent)}
+
+/* 底部抽屉 */
+.scrim{position:fixed;inset:0;background:rgb(0 0 0 / .38);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:720px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;
+  padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h3{margin:0 0 4px;font-size:17px}
+.sheet .bar{display:flex;gap:8px;margin-top:14px;position:sticky;bottom:0;background:var(--bg);padding-top:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:var(--bg);
+  padding:9px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px)}
+.err{background:var(--bad-soft);color:var(--bad);padding:10px;border-radius:10px;font-size:13px;margin-top:10px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top">
+    <h1>Doctor &amp; Missy 的厨房</h1>
+    <div class="sub" id="hdr"><span>正在准备…</span></div>
+  </header>
+  <main id="view">
+    <section><div class="card note">正在计算今天的饭量…</div></section>
+  </main>
+</div>
+<nav class="tabs" id="tabs" aria-label="页面">
+  <button type="button" data-tab="today">今天吃什么</button>
+  <button type="button" data-tab="prep">备料</button>
+  <button type="button" data-tab="dogs">两只狗</button>
+</nav>
+<div id="sheetHost"></div>
+<div id="toastHost"></div>
+
+<script>window.FOODS = {"鸡胸肉(蒸,去皮)": {"p": 31.0, "f": 3.6, "c": 0, "fiber": 0, "ca": 15, "ph": 228, "mg": 29, "k": 256, "na": 74, "fe": 1.04, "zn": 1.0, "cu": 0.05, "mn": 0.02, "se": 27.6, "i": 0, "b12": 0.34, "vita_retinol": 21, "vitd": 5, "vite": 0.27, "cho": 85, "taurine": 18, "kcal": 139.1, "cat": "protein", "basis": "cooked", "grade": "A", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.3}, "牛腱子(蒸,去脂)": {"p": 28.0, "f": 5.0, "c": 0, "fiber": 0, "ca": 15, "ph": 190, "mg": 22, "k": 300, "na": 60, "fe": 2.0, "zn": 3.5, "cu": 0.1, "mn": 0.02, "se": 24, "i": 0, "b12": 1.5, "vita_retinol": 0, "vitd": 5, "vite": 0.15, "cho": 85, "taurine": 40, "kcal": 140.5, "cat": "protein", "basis": "cooked", "grade": "B", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.3}, "猪里脊(蒸,去脂)": {"p": 29.0, "f": 4.5, "c": 0, "fiber": 0, "ca": 6, "ph": 245, "mg": 28, "k": 423, "na": 55, "fe": 0.9, "zn": 2.2, "cu": 0.07, "mn": 0.01, "se": 38, "i": 0, "b12": 0.7, "vita_retinol": 7, "vitd": 18, "vite": 0.2, "cho": 94, "taurine": 25, "kcal": 139.8, "cat": "protein", "basis": "cooked", "grade": "B", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.3}, "兔里脊(蒸)": {"p": 29.0, "f": 4.0, "c": 0, "fiber": 0, "ca": 18, "ph": 224, "mg": 23, "k": 343, "na": 45, "fe": 2.3, "zn": 2.3, "cu": 0.13, "mn": 0.02, "se": 32, "i": 0, "b12": 8.3, "vita_retinol": 0, "vitd": 5, "vite": 0.45, "cho": 120, "taurine": 20, "kcal": 135.5, "cat": "protein", "basis": "cooked", "grade": "B", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.3}, "鸭胸肉(蒸,去皮)": {"p": 27.0, "f": 5.0, "c": 0, "fiber": 0, "ca": 12, "ph": 215, "mg": 24, "k": 271, "na": 65, "fe": 2.7, "zn": 1.9, "cu": 0.25, "mn": 0.02, "se": 22, "i": 0, "b12": 0.4, "vita_retinol": 77, "vitd": 5, "vite": 0.4, "cho": 70, "taurine": 25, "kcal": 137.0, "cat": "protein", "basis": "cooked", "grade": "B", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.3}, "芋头(蒸)": {"p": 0.5, "f": 0.1, "c": 26.5, "fiber": 4.1, "ca": 18, "ph": 76, "mg": 30, "k": 484, "na": 15, "fe": 0.7, "zn": 0.3, "cu": 0.2, "mn": 0.45, "se": 0.9, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 17, "taurine": 0, "kcal": 95.3, "cat": "carb", "basis": "cooked", "grade": "B", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.28}, "红薯(蒸)": {"p": 1.6, "f": 0.1, "c": 20.7, "fiber": 3.0, "ca": 30, "ph": 47, "mg": 25, "k": 337, "na": 36, "fe": 0.7, "zn": 0.3, "cu": 0.16, "mn": 0.26, "se": 0.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 12, "taurine": 0, "kcal": 78.9, "cat": "carb", "basis": "cooked", "grade": "B", "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.28}, "鸡肝(生)": {"p": 16.9, "f": 4.8, "c": 0.7, "fiber": 0, "ca": 8, "ph": 297, "mg": 19, "k": 230, "na": 71, "fe": 9.0, "zn": 2.7, "cu": 0.49, "mn": 0.26, "se": 54.6, "i": 0, "b12": 16.6, "vita_retinol": 11066, "vitd": 0, "vite": 0.7, "cho": 290, "taurine": 110, "kcal": 102.4, "cat": "organ", "basis": "raw", "grade": "A", "var_pct": {"i": 60, "se": 35, "cu": 40, "vitd": 35, "vita_retinol": 40}, "label_override": false, "dm": 0.27}, "猪肝(生)": {"p": 21.0, "f": 3.7, "c": 2.5, "fiber": 0, "ca": 9, "ph": 288, "mg": 18, "k": 273, "na": 87, "fe": 23.0, "zn": 5.8, "cu": 6.6, "mn": 0.3, "se": 52.7, "i": 0, "b12": 26.0, "vita_retinol": 21645, "vitd": 44, "vite": 0.4, "cho": 280, "taurine": 170, "kcal": 113.7, "cat": "organ", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 35, "cu": 40, "vitd": 35, "vita_retinol": 40}, "label_override": false, "dm": 0.27}, "鸡心(生)": {"p": 15.6, "f": 9.3, "c": 0.7, "fiber": 0, "ca": 12, "ph": 177, "mg": 20, "k": 176, "na": 74, "fe": 5.9, "zn": 7.3, "cu": 0.35, "mn": 0.07, "se": 4.8, "i": 0, "b12": 7.3, "vita_retinol": 30, "vitd": 0, "vite": 0.8, "cho": 195, "taurine": 680, "kcal": 136.1, "cat": "organ", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 35, "cu": 40, "vitd": 35, "vita_retinol": 40}, "label_override": false, "dm": 0.27}, "鸡胗(生)": {"p": 17.7, "f": 2.1, "c": 0, "fiber": 0, "ca": 11, "ph": 153, "mg": 16, "k": 237, "na": 69, "fe": 2.6, "zn": 4.4, "cu": 0.09, "mn": 0.05, "se": 25.6, "i": 0, "b12": 1.5, "vita_retinol": 0, "vitd": 0, "vite": 0.3, "cho": 80, "taurine": 520, "kcal": 79.8, "cat": "organ", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 35, "cu": 40, "vitd": 35, "vita_retinol": 40}, "label_override": false, "dm": 0.27}, "鸡肠(生)": {"p": 14.0, "f": 6.0, "c": 0, "fiber": 0, "ca": 15, "ph": 150, "mg": 15, "k": 180, "na": 80, "fe": 3.0, "zn": 3.0, "cu": 0.15, "mn": 0.05, "se": 25, "i": 0, "b12": 3.0, "vita_retinol": 100, "vitd": 0, "vite": 0.3, "cho": 100, "taurine": 300, "kcal": 100.0, "cat": "organ", "basis": "raw", "grade": "C", "var_pct": {"i": 60, "se": 35, "cu": 40, "vitd": 35, "vita_retinol": 40}, "label_override": false, "dm": 0.27}, "猪腰(生)": {"p": 16.5, "f": 3.2, "c": 0, "fiber": 0, "ca": 9, "ph": 204, "mg": 17, "k": 229, "na": 121, "fe": 4.9, "zn": 2.8, "cu": 0.6, "mn": 0.12, "se": 190, "i": 0, "b12": 8.9, "vita_retinol": 200, "vitd": 0, "vite": 0.2, "cho": 290, "taurine": 250, "kcal": 85.0, "cat": "organ", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 35, "cu": 40, "vitd": 35, "vita_retinol": 40}, "label_override": false, "dm": 0.27}, "冻干牛肝": {"p": 59.0, "f": 11.0, "c": 1.5, "fiber": 0, "ca": 15, "ph": 1050, "mg": 60, "k": 950, "na": 200, "fe": 14.0, "zn": 12.0, "cu": 29.0, "mn": 1.0, "se": 100, "i": 0, "b12": 175, "vita_retinol": 49500, "vitd": 0, "vite": 1.2, "cho": 990, "taurine": 60, "kcal": 305.2, "cat": "organ_fd", "basis": "raw", "grade": "C", "var_pct": {"i": 60, "se": 50, "cu": 50, "vitd": 35, "vita_retinol": 50, "b12": 50, "p": 25, "f": 30}, "label_override": false, "dm": 0.95, "note": "生生不息 冻干牛肝块（100% 牛肝）：标签只有蛋白≥60%、脂肪≥5%（干物质）、ME≈353 kcal/100g；微量元素按 USDA 生牛肝 × 3.2 估算，铜个体差异大"}, "冻干牛肾": {"p": 52.0, "f": 10.0, "c": 1.0, "fiber": 0, "ca": 40, "ph": 780, "mg": 50, "k": 800, "na": 550, "fe": 15.0, "zn": 6.0, "cu": 1.3, "mn": 0.4, "se": 700, "i": 0, "b12": 90, "vita_retinol": 3500, "vitd": 0, "vite": 1.0, "cho": 1000, "taurine": 250, "kcal": 270.5, "cat": "organ_fd", "basis": "raw", "grade": "C", "var_pct": {"i": 60, "se": 50, "cu": 50, "vitd": 35, "vita_retinol": 50, "b12": 50, "p": 25, "f": 30}, "label_override": false, "dm": 0.95}, "冻干牛脾": {"p": 63.0, "f": 9.0, "c": 0, "fiber": 0, "ca": 30, "ph": 880, "mg": 70, "k": 800, "na": 250, "fe": 132.0, "zn": 6.0, "cu": 0.8, "mn": 0.4, "se": 80, "i": 0, "b12": 18, "vita_retinol": 0, "vitd": 0, "vite": 0.5, "cho": 550, "taurine": 150, "kcal": 297.0, "cat": "organ_fd", "basis": "raw", "grade": "C", "var_pct": {"i": 60, "se": 50, "cu": 50, "vitd": 35, "vita_retinol": 50, "b12": 50, "p": 25, "f": 30}, "label_override": false, "dm": 0.95}, "秋刀鱼(生)": {"p": 18.1, "f": 20.6, "c": 0, "fiber": 0, "ca": 28, "ph": 180, "mg": 28, "k": 200, "na": 140, "fe": 1.4, "zn": 0.8, "cu": 0.12, "mn": 0.02, "se": 32, "i": 16, "b12": 17.7, "vita_retinol": 53, "vitd": 630, "vite": 1.7, "cho": 55, "taurine": 180, "kcal": 238.5, "cat": "fish", "basis": "raw", "grade": "B", "var_pct": {"i": 80, "se": 40, "cu": 30, "vitd": 45, "vita_retinol": 30, "f": 30}, "label_override": false, "dm": 0.35, "epadha": 2490}, "青花鱼(生)": {"p": 18.6, "f": 13.9, "c": 0, "fiber": 0, "ca": 12, "ph": 217, "mg": 76, "k": 314, "na": 90, "fe": 1.6, "zn": 0.6, "cu": 0.07, "mn": 0.02, "se": 44, "i": 16, "b12": 8.7, "vita_retinol": 50, "vitd": 643, "vite": 1.5, "cho": 65, "taurine": 200, "kcal": 183.2, "cat": "fish", "basis": "raw", "grade": "B", "var_pct": {"i": 80, "se": 40, "cu": 30, "vitd": 45, "vita_retinol": 30, "f": 30}, "label_override": false, "dm": 0.35, "epadha": 1203}, "青口贝(生)": {"p": 11.9, "f": 2.2, "c": 3.7, "fiber": 0, "ca": 26, "ph": 197, "mg": 34, "k": 320, "na": 286, "fe": 4.0, "zn": 1.6, "cu": 0.09, "mn": 3.4, "se": 44.8, "i": 80, "b12": 12.0, "vita_retinol": 48, "vitd": 101, "vite": 0.6, "cho": 65, "taurine": 655, "kcal": 73.3, "cat": "shell", "basis": "raw", "grade": "C", "var_pct": {"i": 150, "se": 50, "cu": 40, "vitd": 50, "vita_retinol": 30, "zn": 50}, "label_override": false, "dm": 0.22}, "生蚝(生)": {"p": 9.5, "f": 2.9, "c": 4.9, "fiber": 0, "ca": 59, "ph": 135, "mg": 33, "k": 204, "na": 212, "fe": 6.7, "zn": 39.3, "cu": 3.75, "mn": 0.38, "se": 63.7, "i": 65, "b12": 16.0, "vita_retinol": 270, "vitd": 8, "vite": 0.9, "cho": 65, "taurine": 396, "kcal": 75.0, "cat": "shell", "basis": "raw", "grade": "C", "var_pct": {"i": 150, "se": 50, "cu": 40, "vitd": 50, "vita_retinol": 30, "zn": 50}, "label_override": false, "dm": 0.22}, "西葫芦(生)": {"p": 1.2, "f": 0.3, "c": 3.1, "fiber": 1.0, "ca": 16, "ph": 38, "mg": 18, "k": 262, "na": 8, "fe": 0.37, "zn": 0.32, "cu": 0.05, "mn": 0.18, "se": 0.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 9.5, "taurine": 0, "kcal": 17.6, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "黄瓜(生)": {"p": 0.65, "f": 0.11, "c": 3.6, "fiber": 0.5, "ca": 16, "ph": 24, "mg": 13, "k": 147, "na": 2, "fe": 0.28, "zn": 0.2, "cu": 0.04, "mn": 0.08, "se": 0.3, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 6.0, "taurine": 0, "kcal": 15.8, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "冬瓜(生)": {"p": 0.4, "f": 0.2, "c": 3.0, "fiber": 2.9, "ca": 19, "ph": 19, "mg": 10, "k": 6, "na": 111, "fe": 0.4, "zn": 0.61, "cu": 0.02, "mn": 0.06, "se": 0.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 5.0, "taurine": 0, "kcal": 13.6, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "南瓜(生)": {"p": 1.0, "f": 0.1, "c": 6.5, "fiber": 0.5, "ca": 21, "ph": 44, "mg": 12, "k": 340, "na": 1, "fe": 0.8, "zn": 0.32, "cu": 0.13, "mn": 0.13, "se": 0.3, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 8.2, "taurine": 0, "kcal": 27.1, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "生菜(生)": {"p": 1.4, "f": 0.2, "c": 2.9, "fiber": 1.3, "ca": 36, "ph": 29, "mg": 13, "k": 194, "na": 28, "fe": 0.86, "zn": 0.18, "cu": 0.03, "mn": 0.25, "se": 0.1, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 9.9, "taurine": 0, "kcal": 16.8, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "娃娃菜(生)": {"p": 1.2, "f": 0.2, "c": 2.2, "fiber": 1.2, "ca": 77, "ph": 29, "mg": 13, "k": 252, "na": 9, "fe": 0.8, "zn": 0.19, "cu": 0.02, "mn": 0.19, "se": 0.5, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 7.0, "taurine": 0, "kcal": 13.6, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "番茄(熟果肉)": {"p": 0.9, "f": 0.2, "c": 3.9, "fiber": 1.2, "ca": 10, "ph": 24, "mg": 11, "k": 237, "na": 5, "fe": 0.27, "zn": 0.17, "cu": 0.06, "mn": 0.11, "se": 0.0, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 6.7, "taurine": 0, "kcal": 18.5, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "蘑菇(生)": {"p": 3.1, "f": 0.3, "c": 3.3, "fiber": 1.0, "ca": 3, "ph": 86, "mg": 9, "k": 318, "na": 5, "fe": 0.5, "zn": 0.52, "cu": 0.32, "mn": 0.05, "se": 9.3, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 17.3, "taurine": 0, "kcal": 24.9, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "芦笋(生)": {"p": 2.2, "f": 0.1, "c": 3.9, "fiber": 2.1, "ca": 24, "ph": 52, "mg": 14, "k": 202, "na": 2, "fe": 2.14, "zn": 0.54, "cu": 0.19, "mn": 0.16, "se": 2.3, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 16.0, "taurine": 0, "kcal": 22.2, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "胡萝卜(生)": {"p": 0.9, "f": 0.2, "c": 9.6, "fiber": 2.8, "ca": 33, "ph": 35, "mg": 12, "k": 320, "na": 69, "fe": 0.3, "zn": 0.24, "cu": 0.05, "mn": 0.14, "se": 0.1, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 8.8, "taurine": 0, "kcal": 38.5, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "芹菜(生)": {"p": 0.7, "f": 0.2, "c": 3.0, "fiber": 1.6, "ca": 40, "ph": 24, "mg": 11, "k": 260, "na": 80, "fe": 0.2, "zn": 0.13, "cu": 0.04, "mn": 0.1, "se": 0.4, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 6.1, "taurine": 0, "kcal": 14.7, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "秋葵(生)": {"p": 1.9, "f": 0.2, "c": 7.5, "fiber": 3.2, "ca": 82, "ph": 61, "mg": 57, "k": 299, "na": 7, "fe": 0.62, "zn": 0.58, "cu": 0.09, "mn": 0.79, "se": 0.7, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 12.3, "taurine": 0, "kcal": 34.6, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "牛里脊(蒸,去脂)": {"p": 28.55, "f": 7.85, "c": 0.0, "fiber": 0.0, "ca": 18.0, "ph": 215.0, "mg": 24.0, "k": 363.0, "na": 59.0, "fe": 1.84, "zn": 4.7, "cu": 0.1, "mn": 0.01, "se": 26.0, "i": 0.0, "b12": 1.8, "vita_retinol": 0.0, "vitd": 5.0, "vite": 0.17, "cho": 95.0, "taurine": 38.0, "kcal": 166.6, "cat": "protein", "basis": "cooked", "grade": "A", "f_range": [6.6, 9.1], "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.3}, "鱿鱼(生)": {"p": 15.6, "f": 1.4, "c": 3.1, "fiber": 0, "ca": 32, "ph": 221, "mg": 33, "k": 246, "na": 44, "fe": 0.68, "zn": 1.53, "cu": 1.89, "mn": 0.03, "se": 44.8, "i": 27, "b12": 1.3, "vita_retinol": 33, "vitd": 0, "vite": 1.2, "cho": 65, "taurine": 300, "kcal": 77.3, "cat": "shell", "basis": "raw", "grade": "B", "label_override": false, "var_pct": {"i": 100, "se": 40, "cu": 30, "zn": 40, "vitd": 50}, "dm": 0.22}, "墨鱼(生)": {"p": 16.2, "f": 0.7, "c": 0.8, "fiber": 0, "ca": 90, "ph": 387, "mg": 30, "k": 354, "na": 372, "fe": 6.02, "zn": 1.73, "cu": 0.62, "mn": 0.21, "se": 44.8, "i": 27, "b12": 3.0, "vita_retinol": 190, "vitd": 0, "vite": 1.2, "cho": 65, "taurine": 320, "kcal": 65.4, "cat": "shell", "basis": "raw", "grade": "B", "label_override": false, "var_pct": {"i": 100, "se": 40, "cu": 30, "zn": 40, "vitd": 50}, "dm": 0.22}, "章鱼(生)": {"p": 14.9, "f": 1.0, "c": 2.2, "fiber": 0, "ca": 53, "ph": 186, "mg": 30, "k": 350, "na": 230, "fe": 5.3, "zn": 1.68, "cu": 0.44, "mn": 0.03, "se": 44.8, "i": 27, "b12": 20.0, "vita_retinol": 150, "vitd": 0, "vite": 1.2, "cho": 65, "taurine": 330, "kcal": 68.3, "cat": "shell", "basis": "raw", "grade": "B", "label_override": false, "var_pct": {"i": 100, "se": 40, "cu": 30, "zn": 40, "vitd": 50}, "dm": 0.22}, "水煮蛋(全蛋)": {"p": 12.58, "f": 10.61, "c": 1.12, "fiber": 0, "ca": 50, "ph": 172, "mg": 10, "k": 126, "na": 124, "fe": 1.19, "zn": 1.05, "cu": 0.013, "mn": 0.03, "se": 30.8, "i": 0, "b12": 1.11, "vita_retinol": 520, "vitd": 87, "vite": 1.03, "cho": 294, "taurine": 0, "kcal": 148.7, "cat": "egg", "basis": "cooked", "grade": "A", "label_override": false, "dm": 0.25, "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "per_unit": 50}, "大米(干)": {"p": 7.13, "f": 0.66, "c": 79.95, "fiber": 1.3, "ca": 28, "ph": 115, "mg": 25, "k": 115, "na": 5, "fe": 0.8, "zn": 1.09, "cu": 0.22, "mn": 1.09, "se": 15.1, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 5.8, "taurine": 0, "kcal": 310.4, "cat": "carb", "basis": "dry", "grade": "A", "label_override": false, "dm": 0.88, "var_pct": {"se": 40, "cu": 30}}, "即食燕麦(干)": {"p": 13.15, "f": 6.52, "c": 67.7, "fiber": 10.1, "ca": 52, "ph": 410, "mg": 138, "k": 362, "na": 6, "fe": 4.25, "zn": 2.95, "cu": 0.39, "mn": 3.63, "se": 28.9, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 40, "taurine": 0, "kcal": 338.4, "cat": "carb", "basis": "dry", "grade": "A", "label_override": false, "dm": 0.88, "var_pct": {"se": 40, "cu": 30}}, "意面(干)": {"p": 13.04, "f": 1.51, "c": 74.67, "fiber": 3.2, "ca": 21, "ph": 189, "mg": 53, "k": 223, "na": 6, "fe": 3.3, "zn": 1.41, "cu": 0.29, "mn": 0.92, "se": 63.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 15, "taurine": 0, "kcal": 319.8, "cat": "carb", "basis": "dry", "grade": "A", "label_override": false, "dm": 0.88, "var_pct": {"se": 40, "cu": 30}}, "挂面(干)": {"p": 12.0, "f": 1.4, "c": 75.0, "fiber": 3.0, "ca": 20, "ph": 180, "mg": 50, "k": 200, "na": 6, "fe": 3.0, "zn": 1.3, "cu": 0.27, "mn": 0.9, "se": 60, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 14, "taurine": 0, "kcal": 316.4, "cat": "carb", "basis": "dry", "grade": "A", "label_override": false, "dm": 0.88, "var_pct": {"se": 40, "cu": 30}}, "土豆(蒸)": {"p": 1.87, "f": 0.1, "c": 20.13, "fiber": 1.8, "ca": 8, "ph": 40, "mg": 20, "k": 379, "na": 4, "fe": 0.31, "zn": 0.27, "cu": 0.18, "mn": 0.14, "se": 0.3, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 12.5, "taurine": 0, "kcal": 77.8, "cat": "carb", "basis": "cooked", "grade": "B", "label_override": false, "dm": 0.22, "var_pct": {"se": 40, "cu": 30}}, "紫薯(蒸)": {"p": 1.6, "f": 0.1, "c": 20.7, "fiber": 3.0, "ca": 30, "ph": 47, "mg": 25, "k": 337, "na": 36, "fe": 0.7, "zn": 0.3, "cu": 0.16, "mn": 0.26, "se": 0.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 12.0, "taurine": 0, "kcal": 78.9, "cat": "carb", "basis": "cooked", "grade": "C", "label_override": false, "dm": 0.22, "var_pct": {"se": 40, "cu": 30}}, "菠菜(生)": {"p": 2.86, "f": 0.39, "c": 3.63, "fiber": 2.2, "ca": 99, "ph": 49, "mg": 79, "k": 558, "na": 79, "fe": 2.71, "zn": 0.53, "cu": 0.13, "mn": 0.9, "se": 1.0, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 19.3, "taurine": 0, "kcal": 26.0, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.07, "var_pct": {"se": 50, "cu": 35}}, "羽衣甘蓝(生)": {"p": 4.28, "f": 0.93, "c": 8.75, "fiber": 3.6, "ca": 150, "ph": 92, "mg": 47, "k": 491, "na": 38, "fe": 1.47, "zn": 0.56, "cu": 0.29, "mn": 0.66, "se": 0.9, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 0.8, "taurine": 0, "kcal": 53.5, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.07, "var_pct": {"se": 50, "cu": 35}}, "西兰花(生)": {"p": 2.82, "f": 0.37, "c": 6.64, "fiber": 2.6, "ca": 47, "ph": 66, "mg": 21, "k": 316, "na": 33, "fe": 0.73, "zn": 0.41, "cu": 0.05, "mn": 0.21, "se": 2.5, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 18.7, "taurine": 0, "kcal": 36.3, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.07, "var_pct": {"se": 50, "cu": 35}}, "丝瓜(生)": {"p": 1.2, "f": 0.2, "c": 4.35, "fiber": 1.1, "ca": 20, "ph": 32, "mg": 14, "k": 139, "na": 3, "fe": 0.36, "zn": 0.07, "cu": 0.05, "mn": 0.09, "se": 0.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 6.0, "taurine": 0, "kcal": 21.1, "cat": "veg", "basis": "raw", "grade": "C", "label_override": false, "dm": 0.07, "var_pct": {"se": 50, "cu": 35}}, "彩椒(生)": {"p": 1.0, "f": 0.3, "c": 6.0, "fiber": 2.1, "ca": 7, "ph": 26, "mg": 12, "k": 211, "na": 4, "fe": 0.43, "zn": 0.25, "cu": 0.07, "mn": 0.12, "se": 0.1, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 5.6, "taurine": 0, "kcal": 27.1, "cat": "veg", "basis": "raw", "grade": "B", "var_pct": {"i": 60, "se": 50, "cu": 35, "vitd": 35, "vita_retinol": 30}, "label_override": false, "dm": 0.07}, "蓝莓(生)": {"p": 0.74, "f": 0.33, "c": 14.49, "fiber": 2.4, "ca": 6, "ph": 12, "mg": 6, "k": 77, "na": 1, "fe": 0.28, "zn": 0.16, "cu": 0.057, "mn": 0.336, "se": 0.1, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 6.0, "taurine": 0, "kcal": 56.1, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.14, "var_pct": {"se": 50, "cu": 35}}, "树莓(生)": {"p": 1.2, "f": 0.65, "c": 11.94, "fiber": 6.5, "ca": 25, "ph": 29, "mg": 22, "k": 151, "na": 1, "fe": 0.69, "zn": 0.42, "cu": 0.09, "mn": 0.67, "se": 0.2, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 12.3, "taurine": 0, "kcal": 51.5, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.14, "var_pct": {"se": 50, "cu": 35}}, "黑莓(生)": {"p": 1.39, "f": 0.49, "c": 9.61, "fiber": 5.3, "ca": 29, "ph": 22, "mg": 20, "k": 162, "na": 1, "fe": 0.62, "zn": 0.53, "cu": 0.165, "mn": 0.646, "se": 0.4, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 8.5, "taurine": 0, "kcal": 42.7, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.14, "var_pct": {"se": 50, "cu": 35}}, "蔓越莓(生)": {"p": 0.39, "f": 0.13, "c": 12.2, "fiber": 4.6, "ca": 8, "ph": 13, "mg": 6, "k": 85, "na": 2, "fe": 0.25, "zn": 0.09, "cu": 0.061, "mn": 0.36, "se": 0.1, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 5.5, "taurine": 0, "kcal": 45.2, "cat": "veg", "basis": "raw", "grade": "B", "label_override": false, "dm": 0.14, "var_pct": {"se": 50, "cu": 35}}, "山药(蒸)": {"p": 1.5, "f": 0.1, "c": 27.9, "fiber": 3.9, "ca": 14, "ph": 55, "mg": 18, "k": 670, "na": 8, "fe": 0.5, "zn": 0.2, "cu": 0.19, "mn": 0.38, "se": 0.7, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 16, "taurine": 0, "kcal": 106.4, "cat": "carb", "basis": "cooked", "grade": "B", "label_override": false, "dm": 0.22, "var_pct": {"se": 40, "cu": 30}}, "蛋白(熟)": {"p": 10.9, "f": 0.17, "c": 0.73, "fiber": 0, "ca": 7, "ph": 15, "mg": 11, "k": 163, "na": 166, "fe": 0.08, "zn": 0.03, "cu": 0.023, "mn": 0.011, "se": 20, "i": 0, "b12": 0.09, "vita_retinol": 0, "vitd": 0, "vite": 0, "cho": 1.1, "taurine": 0, "kcal": 42.1, "cat": "egg", "basis": "cooked", "grade": "A", "label_override": false, "dm": 0.12, "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "note": "熟蛋白；一个蛋约 32 g"}, "蛋黄(熟)": {"p": 15.567, "f": 29.17, "c": 1.813, "fiber": 0, "ca": 126.444, "ph": 451.111, "mg": 8.222, "k": 60.222, "na": 49.333, "fe": 3.163, "zn": 2.863, "cu": 0, "mn": 0.064, "se": 50.0, "i": 0, "b12": 2.923, "vita_retinol": 1444.444, "vitd": 241.667, "vite": 2.861, "cho": 814.711, "taurine": 0, "kcal": 308.8, "cat": "egg", "basis": "cooked", "grade": "A", "label_override": false, "dm": 0.5, "var_pct": {"i": 60, "se": 40, "cu": 30, "vitd": 35, "vita_retinol": 30}, "note": "熟蛋黄；由全蛋减蛋白推算，一个蛋约 18 g"}, "冻干兔血块": {"p": 66.0, "f": 3.0, "c": 1.0, "fiber": 0, "ca": 40, "ph": 450, "mg": 40, "k": 600, "na": 450, "fe": 140, "zn": 5.0, "cu": 0.3, "mn": 0.05, "se": 40, "i": 0, "b12": 3.0, "vita_retinol": 50, "vitd": 0, "vite": 5, "cho": 150, "taurine": 0, "kcal": 338, "cat": "blood_fd", "basis": "raw", "grade": "C", "var_pct": {"fe": 40, "cu": 50, "zn": 40, "na": 40}, "label_override": false, "dm": 0.94, "note": "生生不息 冻干兔血块：兔血粉55%、冻兔肉35%、冻鸡肉10%，加天然维E、迷迭香提取物；标签蛋白≥60%、脂肪≥2%（干物质）、ME≈338 kcal/100g；铁等按干血粉约 0.25% 铁估算"}, "五黑奇亚籽麦片(干)": {"p": 13.2, "f": 5.8, "c": 61.6, "fiber": 9.4, "ca": 106.51, "ph": 386.64, "mg": 165.53, "k": 431.38, "na": 0, "fe": 4.37, "zn": 2.85, "cu": 0.6, "mn": 3.63, "se": 27.64, "i": 0, "b12": 0, "vita_retinol": 0, "vitd": 0, "vite": 0.74, "cho": 35.69, "taurine": 0, "kcal": 373.1, "cat": "carb", "basis": "dry", "grade": "C", "label_override": false, "dm": 0.9, "var_pct": {"se": 40, "cu": 30, "ca": 30, "mg": 30, "fe": 40, "zn": 30}, "note": "小象超市 奇亚籽五黑混合麦片：黑麦片≥48%、黑米片≥25%、黑豆片≥5%、黑藜麦片≥4%、奇亚籽≥4%、黑芝麻≥3%。蛋白、脂肪、碳水、纤维、钠、热量按标签（每100g 1561 kJ）；矿物质按配料比例用 USDA 数据估算。纤维高（9.4%），含麸质和大豆。"}};</script>
+<script>// Doctor & Missy 的厨房 — 计算核心 v2
+// 只含计算，不碰 DOM。浏览器里挂到 window.DMCore，Node 里 module.exports。
+// 日期一律用 'YYYY-MM-DD' 字符串，按本地年月日构造，避免时区 bug。
+(function (root) {
+'use strict';
+
+// ───────────────────────── 常量 ─────────────────────────
+const AAFCO = {ca:1250,ph:1000,mg:150,k:1500,na:200,fe:10,zn:20,cu:1.83,mn:1.25,se:87.5,
+  i:250,vita_retinol:1250,vitd:125,vite:12.5,b12:7,cho:340};          // 每1000kcal 最低
+const AAMAX = {ca:6250,ph:4000,vita_retinol:62500,vitd:750,i:2250,se:500}; // 每1000kcal 上限
+const MARGIN = 1.3;          // 目标倍数（数据本身±30-50%波动）
+// 镁：AAFCO/NRC 推荐量本身已含余量，肉里的镁吸收好，目标取 1.0（用菜补，菜多了纤维会上来）
+const TARGET = {mg:1.0};
+const tgt = k => TARGET[k]!==undefined ? TARGET[k] : MARGIN;
+// 吸收率折算：菠菜草酸结合钙镁，且需焯水弃汤
+const AVAIL = {'菠菜(生)':{mg:0.5, ca:0.1}};
+// 铁低的肉：长期当主力会缺铁（也缺铜）
+const LOW_FE = 1.5;          // mg/100g 熟重
+const STREAK_MAX = 10;       // 连续这么多天低铁肉就提示换
+const CU_SOFT = 3.0;         // Missy 铜的个体化关注线 mg/1000kcal（按天查）
+const CAP_TARGET = 1.3, CAP_MIN = 1.0, CAP_MAX = 2.0;
+const NUT = Object.keys(AAFCO).concat(['p','f','c','fiber','taurine','epadha']);
+const DAILY_K   = ['kcal','p','f','ca','ph','fiber'];
+const WEEKLY_K  = ['mg','k','zn','i','se','cho','ca','ph'];
+const MONTHLY_K = ['vita_retinol','vitd','vite','cu','fe','b12'];
+const NM = {ca:'钙',ph:'磷',mg:'镁',k:'钾',na:'钠',fe:'铁',zn:'锌',cu:'铜',mn:'锰',se:'硒',i:'碘',
+  vita_retinol:'维A',vitd:'维D',vite:'维E',b12:'B12',cho:'胆碱',p:'蛋白质',f:'脂肪',c:'碳水',
+  fiber:'纤维',taurine:'牛磺酸',epadha:'EPA+DHA',kcal:'热量'};
+// 植物来源的铁和维A不计入达标（吸收差）
+const PLANT = new Set(['carb','veg']);
+const FD_LIVER_CU_WORST = 1.35;   // 冻干牛肝铜含量个体差异大：算上限时按 1.35 倍最坏情况
+
+// 补充剂规格（用户已核对）
+const SUPP = {
+  ca:{name:'NOW 碳酸钙粉', mgPerG:417},
+  i: {name:'NOW Potassium Plus Iodine', ugPerTab:225, kPerTab:99},
+  zn:{name:'NOW 吡啶甲酸锌', mgPerTab:50},
+  ve:{name:'维生素E', iuPerCap:145},
+  fo:{name:'NOW Ultra Omega-3', gPerCap:1.0, epadhaPerCap:750},
+  vd:{name:'维生素D3 胶囊（星鲨 400 单位）', iuPerCap:400},
+};
+const VE_PER_G_FISHOIL = 10;   // 每克鱼油额外需要的维E（保守实践建议）
+
+// 星期：0=周日 … 6=周六。自然周从周六开始。
+const FISH_DAYS = new Set([6,1,3,5]);   // Doctor 吃鱼块的日子（隔天）
+const WD = ['周日','周一','周二','周三','周四','周五','周六'];
+
+// ───────────────────────── 日期工具 ─────────────────────────
+function pd(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function ds(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function addDays(s,n){const d=pd(s);d.setDate(d.getDate()+n);return ds(d)}
+function weekStart(s){const d=pd(s);d.setDate(d.getDate()-((d.getDay()+1)%7));return ds(d)}   // 周六
+function monthStart(s){return s.slice(0,8)+'01'}
+function monthEnd(s){const d=pd(monthStart(s));d.setMonth(d.getMonth()+1);d.setDate(0);return ds(d)}
+function range(a,b){const r=[];for(let x=a;x<=b;x=addDays(x,1))r.push(x);return r}
+function weekdayOf(s){return pd(s).getDay()}
+
+// ───────────────────────── 营养累加 ─────────────────────────
+const zero = () => { const t={kcal:0, kmod:0, dm:0}; NUT.forEach(k=>t[k]=0); return t; };
+// 热量按 NRC 2006：总能 × 按整天纤维占干物质比例算的消化率 − 尿能损失
+//   GE = 5.7×蛋白 + 9.4×脂肪 + 4.1×(碳水+纤维)   消化率% = 91.2 − 1.43×纤维%DM   ME = GE×消化率 − 1.04×蛋白
+// 食材库的纤维是总膳食纤维（比粗纤维高），算出的消化率略偏低，结果偏保守。
+// kmod 是改良 Atwater（3.5/8.5/3.5）热量，只用来算三大营养素占比（%ME）。
+const digest = t => t.dm>0 ? Math.max(0.5,(91.2 - 1.43*(t.fiber/t.dm*100))/100) : 0.9;
+const geOf = t => 5.7*t.p + 9.4*t.f + 4.1*(t.c + t.fiber);
+function nrcKcal(t){ return geOf(t)*digest(t) - 1.04*t.p; }
+function finalize(t){ t.kcal = nrcKcal(t); return t; }
+const ME = d => d.p*3.5 + d.f*8.5 + d.c*3.5;
+function addFood(t, F, name, g){
+  const d = F[name]; if(!d || !g) return t;
+  NUT.forEach(k=>{
+    if((k==='fe'||k==='vita_retinol') && PLANT.has(d.cat)) return;
+    const av = AVAIL[name] && AVAIL[name][k]!==undefined ? AVAIL[name][k] : 1;
+    t[k] += (d[k]||0)*g/100*av;
+  });
+  t.kmod += ME(d)*g/100;
+  t.dm += (d.dm||0.25)*g;
+  return t;
+}
+function addSupp(t, s){
+  if(!s) return t;
+  if(s.caG)   t.ca   += s.caG*SUPP.ca.mgPerG;
+  if(s.iTab)  { t.i += s.iTab*SUPP.i.ugPerTab; t.k += s.iTab*SUPP.i.kPerTab; }
+  if(s.znTab) t.zn   += s.znTab*SUPP.zn.mgPerTab;
+  if(s.veCap) t.vite += s.veCap*SUPP.ve.iuPerCap;
+  if(s.vdCap) t.vitd += s.vdCap*SUPP.vd.iuPerCap;
+  if(s.foCap){ t.f += s.foCap*SUPP.fo.gPerCap; t.kmod += s.foCap*SUPP.fo.gPerCap*8.5; t.dm += s.foCap*SUPP.fo.gPerCap;
+               t.epadha += s.foCap*SUPP.fo.epadhaPerCap; }
+  return t;
+}
+function sumT(a,b){const t=zero();Object.keys(t).forEach(k=>t[k]=(a[k]||0)+(b[k]||0));return t}
+
+// 需求（一段时间、一只狗）
+function needFor(k, kcalTotal){ return AAFCO[k]*kcalTotal/1000; }
+function veNeed(kcalTotal, foG){ return AAFCO.vite*kcalTotal/1000 + VE_PER_G_FISHOIL*foG; }
+
+// ───────────────────────── 配置 ─────────────────────────
+function defaultConfig(){
+  return {
+    dogs:{
+      // vegFiberMax：菜泥带来的纤维上限（g/餐），超过就不再加菜，镁的缺口如实显示
+      doctor:{name:'Doctor 弟弟', kcal:415, wkg:8,    meals:2, vegFiberMax:0.20, foCapPerDay:1, cuSoft:false, noEgg:false, noFish:false},
+      missy: {name:'Missy 妹妹',  kcal:677, wkg:11, meals:2, vegFiberMax:0.30, foCapPerDay:0, cuSoft:true, noEgg:false, noFish:false},
+    },
+    pctP:45,                                    // 蛋白占热量%
+    meat:'鸭胸肉(蒸,去皮)', carb:'大米(干)',    // 用户选主食
+    veg:{'西葫芦(生)':1,'黄瓜(生)':1,'南瓜(生)':1},   // 菜泥配比（按重量份），用来补镁
+    fish:'秋刀鱼(生)',
+    egg:{name:'水煮蛋(全蛋)', g:{doctor:25, missy:50}, days:{doctor:[6,0,1,2,3,4], missy:[6,0,1,2,3,4]}}, // 每周哪几天
+    eggInVeg:false,
+    organMode:'cubes',                         // 'cubes' 自制内脏块；'fd' 冻干牛肝 + 冻干兔血（每天按缺口称克数）                            // 鸡蛋单独白煮给（true＝和菜泥一起打：每天都吃，一周总量不变）
+    organ:{
+      chicken:{'鸡肝(生)':100,'鸡心(生)':100,'鸡胗(生)':100,'鸡肠(生)':100},   // 一套 400g，吃两个鸡内脏周
+      pork:{'猪肝(生)':280},                                                   // 一盒 280g，一周，余量扔
+      anchor:{week:null, type:'chicken'},      // 某一周的类型；之后交替
+      fd:'冻干牛肝',                           // 鸡内脏周掺进内脏块补铜；冻干模式下每天单独给
+      blood:'冻干兔血块',                      // 冻干模式：补铁
+      fdBatchG:null,                           // 已做好的鸡内脏批次里实际放了多少克（null=按推荐算）
+    },
+    supp:{znDays:[1,4], veDay:3},              // 锌片优先周一、周四；维E 周三
+  };
+}
+
+// 某自然周做哪种内脏块：从 anchor 起逐周交替
+function organTypeOfWeek(cfg, wsDate){
+  const a = cfg.organ.anchor.week || wsDate;
+  const n = Math.round((pd(wsDate)-pd(a))/(7*864e5));
+  const flip = ((n%2)+2)%2===1;
+  const t = cfg.organ.anchor.type;
+  return flip ? (t==='chicken'?'pork':'chicken') : t;
+}
+
+// 一种内脏配方每100g（生重）的营养
+function per100(F, recipe){
+  const tot = Object.values(recipe).reduce((a,b)=>a+b,0);
+  const t = zero(); for(const n in recipe) addFood(t,F,n,recipe[n]);
+  const r = {}; Object.keys(t).forEach(k=>r[k]=t[k]/tot*100);   // dm 也按每100g
+  return {per100:r, raw:tot};
+}
+
+// ───────────────────────── 碳水：一种或两种 ─────────────────────────
+// carbSplit = 第二种碳水占碳水热量的比例。返回 [[食材, 质量占比], ...] 和等效的“混合碳水”每100g
+function carbParts(F, cfg){
+  const c1=cfg.carb, c2=cfg.carb2;
+  if(!c2 || c2===c1 || !F[c2]) return [[c1,1]];
+  const w = cfg.carbSplit==null ? 0.5 : cfg.carbSplit;
+  const n1=(1-w)/ME(F[c1]), n2=w/ME(F[c2]), t=n1+n2;
+  return [[c1,n1/t],[c2,n2/t]];
+}
+function carbMix(F, cfg){
+  const parts = carbParts(F,cfg);
+  if(parts.length===1) return F[parts[0][0]];
+  const m={p:0,f:0,c:0,fiber:0,dm:0};
+  for(const [n,fr] of parts){ const d=F[n]; m.p+=d.p*fr; m.f+=d.f*fr; m.c+=d.c*fr; m.fiber+=(d.fiber||0)*fr; m.dm+=(d.dm||0.25)*fr; }
+  return m;
+}
+function addCarbs(t, F, cfg, g){ for(const [n,fr] of carbParts(F,cfg)) addFood(t,F,n,g*fr); return t; }
+
+// ───────────────────────── 每日底盘（不含补充剂） ─────────────────────────
+// 给定当天固定项（块、蛋、菜泥、鱼油），解两元方程得肉、碳水克数
+// 健身日：这只狗当天正餐少给一部分热量，留给零食
+const TREAT_KCAL_PER_G = 4.5;   // 鸡胸脆片（生鸡胸烘干）约 4.5 kcal/g
+function treatKcal(cfg, dogKey, d){
+  const tr = cfg.train; if(!tr || !tr.days || !tr.days[d]) return 0;
+  const pct = (tr.pct && tr.pct[dogKey]!=null) ? tr.pct[dogKey] : 0.10;
+  return cfg.dogs[dogKey].kcal * pct;
+}
+function mealKcal(cfg, dogKey, d){ return cfg.dogs[dogKey].kcal - (d ? treatKcal(cfg,dogKey,d) : 0); }
+function solveMain(F, cfg, dogKey, fixedT, kcOverride){
+  const dog = cfg.dogs[dogKey], M=F[cfg.meat], Cm=carbMix(F,cfg);
+  const kc = kcOverride!=null ? kcOverride : dog.kcal, share = cfg.pctP/100;
+  const per = d => ({p:d.p/100, f:d.f/100, c:d.c/100, fib:(d.fiber||0)/100, dm:(d.dm||0.25)});
+  const m = per(M), cc = per(Cm), fx = fixedT;
+  let gM = 0, gC = 0, dg = digest(fx);
+  for(let it=0; it<8; it++){
+    const e = x => (5.7*x.p + 9.4*x.f + 4.1*(x.c+x.fib))*dg - 1.04*x.p;     // 每克 ME
+    const eFix = geOf(fx)*dg - 1.04*fx.p;
+    // ① NRC 热量 = 目标   ② 蛋白占改良 Atwater 热量的比例 = 目标
+    const a1=e(m), b1=e(cc), c1=kc-eFix;
+    const km = x => 3.5*x.p + 8.5*x.f + 3.5*x.c;
+    const a2=3.5*m.p - share*km(m), b2=3.5*cc.p - share*km(cc), c2=share*fx.kmod - 3.5*fx.p;
+    const det=a1*b2-a2*b1;
+    gM=(c1*b2-c2*b1)/det; gC=(a1*c2-a2*c1)/det;
+    const tot = {fiber: fx.fiber + gM*m.fib + gC*cc.fib, dm: fx.dm + gM*m.dm + gC*cc.dm};
+    dg = digest(tot);
+  }
+  return {gM, gC, ok: gM>0 && gC>0};
+}
+
+// 当天某只狗的“块”目标（生重等价克数）
+function blockTargets(F, cfg, dogKey, type, others){
+  const dog = cfg.dogs[dogKey];
+  const ratio = dog.kcal/(cfg.dogs.doctor.kcal+cfg.dogs.missy.kcal);
+  // 内脏：两种周每天总量相同 = 一套鸡内脏 400g ÷ 14天；猪肝周再受 Missy 铜关注线封顶
+  const chickenRaw = Object.values(cfg.organ.chicken).reduce((a,b)=>a+b,0);
+  let organDayBoth = chickenRaw/14;
+  let organG = organDayBoth*ratio;
+  const rec = type==='pork' ? cfg.organ.pork : cfg.organ.chicken;
+  const P = per100(F, rec).per100;
+  if(type==='pork'){
+    // 按 Missy 的关注线算出两只狗共同的封顶，再按热量比分
+    const m = cfg.dogs.missy, mRatio = m.kcal/(cfg.dogs.doctor.kcal+m.kcal);
+    const cuCap = CU_SOFT*m.kcal/1000;
+    const V = vegPer100(F,cfg.veg), vegMax = V.fiber>0 ? m.vegFiberMax*m.meals/V.fiber*100 : 0;
+    const cuOther = others.missyCuOther + V.cu*vegMax/100;   // Missy 当天来自肉、碳水、鱼、蛋、菜的铜（菜按上限估）
+    const missyMax = Math.max(0,(cuCap - cuOther)/P.cu*100);
+    const bothMax = missyMax/mRatio;
+    organDayBoth = Math.min(organDayBoth, bothMax);
+    organG = organDayBoth*ratio;
+  }
+  return {organG, organType:type, organPer100:P};
+}
+
+// 鸡蛋：单独给时按指定的星期几；和菜泥一起打时每天都吃，一周总量不变
+function eggPlan(cfg, key){
+  if(cfg.dogs[key] && cfg.dogs[key].noEgg) return {days:new Set(), g:0};
+  const days = cfg.egg.days[key]||[], g = cfg.egg.g[key]||0;
+  if(cfg.eggInVeg) return {days:new Set([0,1,2,3,4,5,6]), g: g*days.length/7};
+  return {days:new Set(days), g};
+}
+
+// 鸡蛋：恢复期可以只给蛋白、或蛋白加一部分蛋黄（cfg.eggParts = {white, yolk}，按计划蛋量的比例）
+const EGG_WHITE='蛋白(熟)', EGG_YOLK='蛋黄(熟)', EGG_WF=0.64, EGG_YF=0.36;
+function eggPut(cfg, g, fn){
+  if(!(g>0)) return;
+  const P = cfg.eggParts;
+  if(!P) return fn(cfg.egg.name, g);
+  if(P.white>0) fn(EGG_WHITE, g*EGG_WF*P.white);
+  if(P.yolk>0)  fn(EGG_YOLK,  g*EGG_YF*P.yolk);
+}
+
+// 菜泥轮换：一批吃 2 天，一批以一种菜为主，5 批（10 天）一轮。
+// 黄瓜、南瓜纤维太少，单独做两天要 400 g，超过辅食机；按 4:1 搭一点菠菜（镁多、纤维多），量降到 240 g 左右。
+const VEG_ROTATION = [
+  {'西葫芦(生)':1},
+  {'南瓜(生)':1,'菠菜(生)':0.25},
+  {'丝瓜(生)':1},
+  {'黄瓜(生)':1,'菠菜(生)':0.25},
+  {'娃娃菜(生)':1},
+];
+const VEG_DAYS = 2, VEG_MAX_RAW = 300;
+const vegKey = mix => Object.keys(mix||{}).filter(n=>mix[n]>0).sort().join('|');
+function vegRotIndex(mix){ const k=vegKey(mix); return k ? VEG_ROTATION.findIndex(m=>vegKey(m)===k) : -1; }
+// 上一批之后的 n 批；上一批不在轮换里（或没有）就从第一组开始
+function vegRotNext(lastMix, n){
+  const i = vegRotIndex(lastMix), L = VEG_ROTATION.length, out = [];
+  for(let j=0;j<(n||1);j++) out.push(Object.assign({}, VEG_ROTATION[(i<0 ? j : i+1+j)%L]));
+  return out;
+}
+
+// 菜泥配比每100g（含吸收率折算）
+function vegPer100(F, mix){
+  const tot=Object.values(mix).reduce((a,b)=>a+b,0)||1, t=zero();
+  for(const n in mix) addFood(t,F,n,mix[n]/tot*100);
+  return t;
+}
+
+// 鱼：按维D 达到 1.3 倍定克数（扣掉蛋、肉、内脏已有的维D）
+function fishGrams(F, cfg, dogKey, vdOtherWeek){
+  const dog=cfg.dogs[dogKey], need = needFor('vitd', dog.kcal*7)*MARGIN;
+  const gWeek = Math.max(0,(need - vdOtherWeek))/F[cfg.fish].vitd*100;
+  return gWeek/7;
+}
+
+// ───────────────────────── 周计划 ─────────────────────────
+// 返回该自然周每天、每只狗的计划克数 + 本周药盒
+// 冻干内脏模式：每天给冻干牛肝（铜、维A、B12）+ 冻干兔血（铁），克数按缺口算
+function fdDoses(F, cfg, P0){
+  const L = F[cfg.organ.fd], B = F[cfg.organ.blood], out = {liver:{}, blood:{}};
+  const r05 = x => Math.round(x*2)/2, f05 = x => Math.floor(x*2+1e-9)/2;
+  for(const k of ['doctor','missy']){
+    const dog = cfg.dogs[k], kc = dog.kcal, ds = Object.values(P0.dogs[k].days).map(r=>r.tAll);
+    const avg = n => ds.reduce((a,t)=>a+t[n],0)/ds.length, mx = n => Math.max(...ds.map(t=>t[n]));
+    const need = n => AAFCO[n]*kc/1000;
+    let gL = 0;
+    if(L && !cfg.noOrgan){
+      const g = n => L[n]>0 ? Math.max(0, MARGIN*need(n) - avg(n))/L[n]*100 : 0;
+      gL = Math.max(g('cu'), g('vita_retinol'), g('b12'));
+      const capCu = (dog.cuSoft ? CU_SOFT : 2*CU_SOFT)*kc/1000 - mx('cu');
+      const gCap = Math.max(0, capCu)/(L.cu*FD_LIVER_CU_WORST)*100;
+      gL = Math.min(r05(gL), f05(gCap));
+      if(cfg.organScale!=null && cfg.organScale<1) gL = r05(gL*cfg.organScale);
+    }
+    let gB = 0;
+    if(B && !cfg.noBlood){
+      const fe1 = avg('fe') + (L?L.fe*gL/100:0);
+      gB = Math.max(0, MARGIN*need('fe') - fe1)/B.fe*100;
+      gB = Math.min(r05(gB), f05(0.05*kc/B.kcal*100));
+      if(cfg.bloodScale!=null && cfg.bloodScale<1) gB = r05(gB*cfg.bloodScale);
+    }
+    out.liver[k] = gL; out.blood[k] = gB;
+  }
+  return out;
+}
+function planWeek(F, cfg, wsDate, opt){
+  opt = opt||{};
+  if(cfg.organMode==='fd' && !opt.fdFixed){
+    const zero2 = {liver:{doctor:0,missy:0}, blood:{doctor:0,missy:0}};
+    const P0 = planWeek(F, cfg, wsDate, Object.assign({}, opt, {fdFixed:zero2}));
+    const D = fdDoses(F, cfg, P0);
+    const P = planWeek(F, cfg, wsDate, Object.assign({}, opt, {fdFixed:D}));
+    P.fd = D; return P;
+  }
+  const days = range(wsDate, addDays(wsDate,6));
+  const fdMode = !!opt.fdFixed;
+  const type = fdMode ? 'fd' : (opt.type || organTypeOfWeek(cfg, wsDate));
+  const fdG = fdMode ? opt.fdFixed.liver : (type==='chicken' && !opt.noFd && !cfg.noFd && !cfg.noOrgan) ? fdPerDay(F,cfg,wsDate) : {doctor:0,missy:0};
+  const bloodG = fdMode ? opt.fdFixed.blood : {doctor:0,missy:0};
+  const V = vegPer100(F,cfg.veg), vegTot=Object.values(cfg.veg).reduce((a,b)=>a+b,0)||1;
+  const out = {weekStart:wsDate, organType:type, dogs:{}};
+
+  for(const key of ['doctor','missy']){
+    const dog = cfg.dogs[key];
+    const foG = dog.foCapPerDay*SUPP.fo.gPerCap;
+    out.dogs[key] = {days:{}};
+
+    // 第一遍：不含鱼、不含猪肝封顶，先估肉碳水 → 得到维D、铜的“其他来源”
+    const EP = eggPlan(cfg, key), eggDays = EP.days, eggG = EP.g;
+    const draft = (fishG, organG, organP) => days.map(d=>{
+      const t = zero();
+      if(eggDays.has(weekdayOf(d))) eggPut(cfg, eggG, (n,x)=>addFood(t,F,n,x));
+      addFood(t,F,cfg.fish,fishG);
+      if(organG){ for(const k in organP) if(k!=='kcal') t[k]+=organP[k]*organG/100; }
+      addFood(t,F,cfg.organ.fd,fdG[key]);
+      if(bloodG[key]) addFood(t,F,cfg.organ.blood,bloodG[key]);
+      addSupp(t,{foCap:dog.foCapPerDay});
+      // 菜泥按纤维余量（先假设碳水贡献，下面迭代）
+      return {d,t};
+    });
+
+    // 迭代：鱼量依赖维D，肉碳水依赖固定项，菜泥依赖碳水纤维
+    let fishG = 0, organ = blockTargets(F,cfg,key,'chicken',{missyCuOther:0});
+    for(let it=0; it<6; it++){
+      // Missy 的铜其他来源：按上一轮估计
+      let missyCuOther = 0;
+      if(type==='pork' && !fdMode){
+        const m='missy', mFish = it===0?0:(out._fishMissy||0);
+        // 有蛋、没蛋的天都算一遍，取铜较高的那天（没蛋的天肉更多）
+        const EM = eggPlan(cfg,'missy');
+        for(const eg of (EM.days.size===7 ? [EM.g] : [EM.g, 0])){
+          const t=zero(); addFood(t,F,cfg.fish,mFish); eggPut(cfg, eg, (n,x)=>addFood(t,F,n,x));
+          const sol = solveMain(F,cfg,m,t);
+          addFood(t,F,cfg.meat,sol.gM); addCarbs(t,F,cfg,sol.gC);
+          missyCuOther = Math.max(missyCuOther, t.cu);
+        }
+      }
+      organ = blockTargets(F,cfg,key,type,{missyCuOther});
+      if(cfg.noOrgan || fdMode) organ = Object.assign({}, organ, {organG:0});
+      else if(cfg.organScale!=null && cfg.organScale<1) organ = Object.assign({}, organ, {organG:organ.organG*cfg.organScale});
+      const rows = draft(fishG, organ.organG, organ.organPer100);
+      let vdOther = 0;
+      rows.forEach(r=>{ const sol=solveMain(F,cfg,key,r.t);
+        const t2=Object.assign(zero(),r.t); addFood(t2,F,cfg.meat,sol.gM); addCarbs(t2,F,cfg,sol.gC);
+        vdOther += t2.vitd - (F[cfg.fish].vitd*fishG/100); });
+      fishG = (cfg.noFish || dog.noFish) ? 0 : fishGrams(F,cfg,key,vdOther)*(cfg.fishScale!=null ? cfg.fishScale : 1);
+      if(key==='missy') out._fishMissy = fishG;
+    }
+
+    // 定稿每天：菜泥按“本周镁达到目标”定量，每天一样；受纤维上限约束
+    const build = (vegG) => {
+      let wk = zero(); const rows={};
+      days.forEach(d=>{
+        const t = zero(), g = {};
+        const put=(n,x)=>{ if(x>0){ g[n]=(g[n]||0)+x; addFood(t,F,n,x);} };
+        if(eggDays.has(weekdayOf(d))) eggPut(cfg, eggG, put);
+        // 鱼块一块 = Doctor 两天的量：Doctor 周六、周一、周三、周五各一块，Missy 每天按块
+        if(key==='doctor' && cfg.fishAlt===true) put(cfg.fish, FISH_DAYS.has(weekdayOf(d)) ? 2*fishG : 0);
+        else put(cfg.fish, fishG);
+        const rec = type==='pork'?cfg.organ.pork:cfg.organ.chicken;
+        const rawTot = Object.values(rec).reduce((a,b)=>a+b,0);
+        for(const n in rec) put(n, organ.organG*rec[n]/rawTot);
+        put(cfg.organ.fd, fdG[key]);
+        if(bloodG[key]) put(cfg.organ.blood, bloodG[key]);
+        for(const n in cfg.veg) put(n, vegG*cfg.veg[n]/vegTot);
+        addSupp(t,{foCap:dog.foCapPerDay});
+        const sol = solveMain(F,cfg,key,t,mealKcal(cfg,key,d));
+        put(cfg.meat, sol.gM); for(const [n,fr] of carbParts(F,cfg)) put(n, sol.gC*fr);
+        finalize(t);
+        rows[d] = {g, t, ok:sol.ok, organG:organ.organG, fishG, vegG, fdG:fdG[key]};
+        wk = sumT(wk,t);
+      });
+      return {rows, wk};
+    };
+    const vegCap = V.fiber>0 ? dog.vegFiberMax*dog.meals/V.fiber*100 : Infinity;
+    let vegG = 0, B = build(0);
+    for(let it=0; it<4; it++){
+      const gap = (needFor('mg',dog.kcal*7)*(tgt('mg')+0.02) - (B.wk.mg - V.mg*vegG/100*7))/7;
+      vegG = Math.min(vegCap, Math.max(0, gap/V.mg*100));
+      B = build(vegG);
+    }
+    const scale = cfg.vegScale==null ? 1 : cfg.vegScale;   // 菜泥适应期：先给一部分
+    if(scale!==1) B = build(vegG*scale);
+    out.dogs[key].days = B.rows;
+    out.dogs[key].vegCapped = vegG>=vegCap-1e-9 && vegCap<Infinity;
+    out.dogs[key].vegFull = vegG;
+    const wk = B.wk;
+    // ── 本周补充剂（整数片/粒，定位到具体哪天） ──
+    const kcW = dog.kcal*7;
+    const caNeed = Math.max(needFor('ca',kcW), wk.ph*CAP_TARGET) - wk.ca;
+    const caPerDay = Math.ceil(Math.max(0,caNeed)/7/SUPP.ca.mgPerG*20)/20;     // 0.05g 一档
+    const so = cfg.suppOff ? 0 : 1;
+    const znTabs = so*Math.max(0,Math.ceil((needFor('zn',kcW)*MARGIN - wk.zn)/SUPP.zn.mgPerTab));
+    const iTabs  = so*Math.max(0,Math.ceil((needFor('i',kcW)*MARGIN - wk.i)/SUPP.i.ugPerTab));
+    const veCaps = so*Math.max(0,Math.ceil((veNeed(kcW,foG*7)*MARGIN - wk.vite)/SUPP.ve.iuPerCap));
+    // 维D：食物（主要是鱼、蛋）不够需要量时才补，按 1.3 倍补到整粒；吃鱼的狗一般是 0
+    const vdNeed = needFor('vitd',kcW);
+    const vdCaps = (so && wk.vitd < vdNeed) ? Math.ceil((vdNeed*MARGIN - wk.vitd)/SUPP.vd.iuPerCap) : 0;
+    const box = {};
+    days.forEach(d=>box[d]={caG:caPerDay, iTab:0, znTab:0, veCap:0, vdCap:0, foCap:dog.foCapPerDay});
+    spreadEven(days, box, 'iTab', iTabs);
+    spread(days, box, 'znTab', znTabs, cfg.supp.znDays);
+    spread(days, box, 'veCap', veCaps, [cfg.supp.veDay]);
+    spread(days, box, 'vdCap', vdCaps, (cfg.supp.vdDays||[1,4]).slice(0, Math.max(1,vdCaps)));
+    out.dogs[key].box = box;
+    out.dogs[key].suppWeek = {caPerDay, znTabs, iTabs, veCaps, vdCaps};
+    days.forEach(d=>{ const r=out.dogs[key].days[d]; r.tAll = finalize(addSupp(Object.assign(zero(),r.t), Object.assign({},box[d],{foCap:0}))); });
+  }
+  delete out._fishMissy;
+  return out;
+}
+
+// 鸡内脏周掺多少冻干内脏补铜：
+// 一个“鸡周+猪周”的两周里，铜平均达到 1.3 倍；Missy 每天不超过铜关注线。
+// 两只狗按热量比分（内脏块统一配方，Doctor 1 块、Missy 2 块）。
+function fdPerDay(F, cfg, wsDate){
+  const FD = F[cfg.organ.fd]; if(!FD || !FD.cu) return {doctor:0,missy:0};
+  const kD=cfg.dogs.doctor.kcal, kM=cfg.dogs.missy.kcal;
+  if(cfg.organ.fdBatchG!=null){
+    const perDay = cfg.organ.fdBatchG/14;
+    return {doctor:perDay*kD/(kD+kM), missy:perDay*kM/(kD+kM)};
+  }
+  const avgCu = (P,k)=>{let c=0,n=0;for(const d in P.dogs[k].days){c+=P.dogs[k].days[d].tAll.cu;n++}return c/n};
+  const maxCu = (P,k)=>Math.max(...Object.values(P.dogs[k].days).map(r=>r.tAll.cu));
+  const Pc = planWeek(F,cfg,wsDate,{type:'chicken',noFd:true});
+  const Pp = planWeek(F,cfg,wsDate,{type:'pork'});
+  // 以 Missy 为准算每千卡的剂量（她有关注线），Doctor 同比例
+  const m='missy', need=AAFCO.cu*kM/1000;
+  const want = Math.max(0, 2*MARGIN*need - avgCu(Pc,m) - avgCu(Pp,m));
+  const cap  = Math.max(0, CU_SOFT*kM/1000 - maxCu(Pc,m));
+  const gM = Math.min(want,cap)/FD.cu*100;
+  return {doctor:gM*kD/kM, missy:gM, capped: want>cap};
+}
+
+// 把 n 片平均撒在 7 天里：每天 floor(n/7) 片，余下的隔开放
+function spreadEven(days, box, field, n){
+  const base=Math.floor(n/7), extra=n%7;
+  days.forEach(d=>box[d][field]+=base);
+  for(let j=0;j<extra;j++) box[days[Math.floor(j*7/extra)]][field]+=1;
+}
+// 把 n 片尽量平均放在优先的星期几；放不下再轮到其他天
+function spread(days, box, field, n, prefWd){
+  if(n<=0) return;
+  const order = [];
+  prefWd.forEach(w=>{ const d=days.find(x=>weekdayOf(x)===w); if(d) order.push(d); });
+  days.forEach(d=>{ if(!order.includes(d)) order.push(d); });
+  // 先每个优先日一片，循环加
+  let i=0; const base = prefWd.length;
+  while(n>0){ box[order[i % Math.max(base,1)] || order[i%order.length]][field]+=1; n--; i++; }
+}
+
+// ───────────────────────── 恢复期 ─────────────────────────
+// 清淡饮食：瘦肉 + 白米饭 + 钙粉；按顺序一档一档加回（脂肪少、吃过没问题的在前，蛋黄和鱼在后）。
+const RECOVERY_STEPS = [
+  {k:'organ', n:'内脏块',          tiers:[0.5,1],      tn:['半量','全量'],            how:'先不放冻干牛肝；半量就是平时一半的量'},
+  {k:'supp',  n:'药盒',            tiers:[1],          tn:['碘、锌、维E、维D'],         how:'锌随饭喂；维D 只给不吃鱼的狗；鱼油先不给'},
+  {k:'fd',    n:'冻干牛肝',        tiers:[1],          tn:['放回'],                   how:'下一批鸡内脏块里放回去'},
+  {k:'veg',   n:'菜泥（西葫芦）',  tiers:[0.25,0.5,1], tn:['25%','50%','全量'],       how:'一次做两天；量少就蒸软用叉子压成泥'},
+  {k:'eggw',  n:'蛋白',            tiers:[0.5,1],      tn:['半量','全量'],            how:'白煮蛋只给蛋白，几乎不含脂肪'},
+  {k:'eggy',  n:'蛋黄',            tiers:[0.25,0.5,1], tn:['¼','½','全量'],          how:'和蛋白一起给；蛋黄最油，慢慢加'},
+  {k:'fish',  n:'鱼块',            tiers:[0.5,1],      tn:['半量','全量 + 鱼油'],     how:'晚餐给；全量时 Doctor 恢复每天的鱼油'},
+  {k:'kcal',  n:'热量回到平时',    tiers:null,         tn:null,                       how:'每次加 10%，可以分几次点'},
+];
+const RECOVERY_GAP = 2;     // 两档之间至少隔几天
+// 冻干内脏模式：内脏块换成冻干牛肝，紧接着冻干兔血（Missy 吃过没问题）；去掉“冻干牛肝放回内脏块”
+function recSteps(cfg){
+  if(!cfg || cfg.organMode!=='fd') return RECOVERY_STEPS;
+  const out = [], kcalStep = RECOVERY_STEPS.find(s=>s.k==='kcal');
+  for(const s of RECOVERY_STEPS){
+    if(s.k==='fd' || s.k==='kcal') continue;
+    if(s.k==='organ'){ out.push({k:'organ', n:'冻干牛肝', tiers:[0.5,1], tn:['半量','全量'], how:'晚餐剪碎拌进饭里'});
+      out.push({k:'blood', n:'冻干兔血', tiers:[0.5,1], tn:['半量','全量'], how:'补铁，晚餐和牛肝一起给；便便颜色会变深，属正常'}); continue; }
+    out.push(s);
+    if(s.k==='supp') out.push(kcalStep);      // 先把热量加回来（同样的肉和米饭多一点），再加菜、蛋、鱼
+  }
+  return out;
+}
+// 旧版记录（done）不再沿用：从头开始
+function recState(cfg){
+  const r = cfg.recovery; if(!r) return null;
+  if(r.v===2) return {lv:r.lv||{}, hist:r.hist||[]};
+  return {lv:{}, hist:[]};
+}
+function recFrac(st, k, cfg){
+  const s = recSteps(cfg).find(x=>x.k===k) || RECOVERY_STEPS.find(x=>x.k===k), n = (st.lv[k]||0);
+  return s && n>0 && s.tiers ? s.tiers[Math.min(n, s.tiers.length)-1] : 0;
+}
+function applyRecovery(cfg){
+  const r = cfg.recovery; if(!r || !r.on) return cfg;
+  const c = JSON.parse(JSON.stringify(cfg)), st = recState(cfg);
+  c.carb = '大米(干)'; c.carb2 = '';
+  const n = st.lv.kcal||0;
+  const fishFull = recFrac(st,'fish',cfg)>=1;
+  for(const k of ['doctor','missy']){
+    const normal = cfg.dogs[k].kcal, base = (r.kcal&&r.kcal[k]) || normal;
+    c.dogs[k].kcal = Math.min(normal, base*Math.pow(1.1,n));
+    if(!fishFull) c.dogs[k].foCapPerDay = 0;
+  }
+  const fo = recFrac(st,'organ',cfg); if(fo>0) c.organScale = fo; else c.noOrgan = true;
+  if(cfg.organMode==='fd'){ const fb = recFrac(st,'blood',cfg); if(fb>0) c.bloodScale = fb; else c.noBlood = true; }
+  if(!(st.lv.supp>0)) c.suppOff = true;
+  if(!(st.lv.fd>0)) c.noFd = true;
+  c.vegScale = recFrac(st,'veg',cfg); c.eggInVeg = false;
+  const w = recFrac(st,'eggw',cfg), y = recFrac(st,'eggy',cfg);
+  if(w>0 || y>0) c.eggParts = {white:w, yolk:y};
+  else c.egg = Object.assign({}, c.egg, {g:{doctor:0,missy:0}});
+  const ff = recFrac(st,'fish',cfg); if(ff>0) c.fishScale = ff; else c.noFish = true;
+  c.inRecovery = true;
+  c.recLv = st.lv;
+  return c;
+}
+function kcalDoneOf(cfg, st){
+  const r = cfg.recovery, n = st.lv.kcal||0;
+  return ['doctor','missy'].every(k=>{ const base=(r.kcal&&r.kcal[k])||cfg.dogs[k].kcal; return base*Math.pow(1.1,n) >= cfg.dogs[k].kcal-0.5; });
+}
+// 下一档是什么、最早哪天可以加
+function recoveryNext(cfg, today){
+  const r = cfg.recovery; if(!r || !r.on) return null;
+  const st = recState(cfg);
+  const last = st.hist.length ? st.hist.map(h=>h.date).sort().pop() : r.start;
+  const STEPS = recSteps(cfg);
+  const kcalDone = kcalDoneOf(cfg, st);
+  let next = STEPS.find(s=>s.tiers ? (st.lv[s.k]||0) < s.tiers.length : !kcalDone);
+  const earliest = addDays(last, RECOVERY_GAP);
+  let label = '', tier = 0;
+  if(next){
+    if(next.tiers){ tier = (st.lv[next.k]||0); label = next.n + (next.tiers.length>1 ? ' ' + next.tn[tier] : ''); }
+    else label = '热量加 10%';
+  }
+  return {next, tier, label, earliest, ready: today>=earliest, finished: !next, lv: st.lv, hist: st.hist, kcalDone};
+}
+// 加一档 / 退一档：返回新的 recovery 对象
+function recoveryStep(cfg, today, dir){
+  const r = JSON.parse(JSON.stringify(cfg.recovery)), st = recState(cfg);
+  r.v = 2; r.lv = Object.assign({}, st.lv); r.hist = st.hist.slice(); delete r.done;
+  if(dir>0){
+    const N = recoveryNext(cfg, today); if(!N || !N.next) return {r, k:null};
+    r.lv[N.next.k] = (r.lv[N.next.k]||0)+1; r.hist.push({k:N.next.k, date:today});
+    return {r, k:N.next.k, label:N.label};
+  }
+  const h = r.hist.pop(); if(!h) return {r, k:null};
+  r.lv[h.k] = Math.max(0,(r.lv[h.k]||0)-1); if(!r.lv[h.k]) delete r.lv[h.k];
+  return {r, k:h.k};
+}
+// 菜在适应期（不到全量）时鸡蛋单独给：菜泥里菜少蛋多，而且中途加菜量后蛋菜比例就不对了
+function applyVegRamp(cfg){
+  const sc = cfg.vegScale==null ? 1 : cfg.vegScale;
+  if(!cfg.eggInVeg || sc>=1) return cfg;
+  const c = JSON.parse(JSON.stringify(cfg)); c.eggInVeg = false; c.eggHeld = true;
+  return c;
+}
+// 现在吃着的：每一样到哪一档
+function recoveryAdded(cfg){
+  const st = recState(cfg); if(!st) return [];
+  const out = recSteps(cfg).filter(s=>s.tiers && st.lv[s.k]>0).map(s=>s.n + (s.tiers.length>1 ? ' ' + s.tn[Math.min(st.lv[s.k],s.tiers.length)-1] : ''));
+  if(st.lv.kcal>0) out.push(kcalDoneOf(cfg, st) ? '热量已回到平时' : `热量加了 ${st.lv.kcal} 次 10%`);
+  return out;
+}
+
+// ───────────────────────── 实际 + 预测 ─────────────────────────
+// logs: { 'YYYY-MM-DD': { doctor:{g:{食材:克}, s:{caG,iTab,znTab,veCap,foCap}}, missy:{...} } }
+function dayTotal(F, entry){
+  const t = zero(); if(!entry) return t;
+  for(const n in (entry.g||{})) addFood(t,F,n,entry.g[n]);
+  addSupp(t, entry.s);
+  return finalize(t);
+}
+// “照做了”：把计划写成当天记录
+function planToLog(plan, d){
+  const r = {};
+  for(const key of ['doctor','missy']){
+    const p = plan.dogs[key].days[d]; if(!p) continue;
+    r[key] = {g:Object.assign({},p.g), s:Object.assign({},plan.dogs[key].box[d]), fromPlan:true};
+  }
+  return r;
+}
+
+// 一段日期内某只狗：已记录的用实际，未来的用计划（today 之后、或今天未记录）
+function periodTotals(F, cfg, logs, dogKey, from, to, today, planCache){
+  let act = zero(), fc = zero(), nAct=0, nPlan=0;
+  for(const d of range(from,to)){
+    const L = logs[d] && logs[d][dogKey];
+    if(L){ act = sumT(act, dayTotal(F,L)); nAct++; }
+    else if(d >= today){
+      const ws = weekStart(d);
+      const P = planCache[ws] || (planCache[ws]=planWeek(F,cfg,ws));
+      fc = sumT(fc, P.dogs[dogKey].days[d].tAll); nPlan++;
+    }
+  }
+  const nDays=range(from,to).length;
+  return {act, fc, all:sumT(act,fc), nAct, nPlan, nDays:nAct+nPlan, nMissing:nDays-nAct-nPlan};
+}
+
+// ───────────────────────── 检查 ─────────────────────────
+function status(k,r){ return r>=tgt(k)-0.005?'ok' : r>=1?'thin' : 'low'; }
+
+function checkDay(F, cfg, dogKey, t, target){
+  const dog=cfg.dogs[dogKey], kc=t.kcal||1, out=[], tg = target||dog.kcal;
+  out.push({k:'kcal', v:t.kcal, target:tg, s: Math.abs(t.kcal/tg-1)<=0.08?'ok':'warn'});
+  const km=t.kmod||kc, pP=t.p*3.5/km*100, pF=t.f*8.5/km*100;
+  out.push({k:'p', v:pP, unit:'%ME', s: pP>=cfg.pctP-3?'ok':'warn'});
+  out.push({k:'f', v:pF, unit:'%ME', s: pF>30||pF<12?'warn':'ok'});
+  const cap = t.ph? t.ca/t.ph : 0;
+  out.push({k:'cap', v:cap, s: cap<CAP_MIN||cap>CAP_MAX?'warn':'ok'});
+  out.push({k:'fiber', v:t.fiber/dog.meals, unit:'g/餐', s:'info'});
+  if(dog.cuSoft){ const lim=CU_SOFT*dog.kcal/1000;
+    out.push({k:'cu', v:t.cu, limit:lim, s: t.cu>lim*1.02?'warn':'ok'}); }
+  return out;
+}
+
+function checkPeriod(F, cfg, dogKey, P, keys){
+  const dog=cfg.dogs[dogKey], kcTot = dog.kcal*P.nDays, foG = dog.foCapPerDay*SUPP.fo.gPerCap*P.nDays;
+  return keys.map(k=>{
+    const need = k==='vite' ? veNeed(kcTot,foG) : needFor(k,kcTot);
+    const r = P.all[k]/need;
+    const row = {k, ratio:r, target:tgt(k), ratioActual: P.nAct? P.act[k]/(need*P.nAct/P.nDays):null, s:status(k,r)};
+    if(AAMAX[k]){ const mx = AAMAX[k]*P.all.kcal/1000; row.ofMax = P.all[k]/mx; if(row.ofMax>0.7) row.s='high'; }
+    if(k==='ca'||k==='ph'){ row.cap = P.all.ca/P.all.ph; if(row.s==='thin') row.s='ok';
+      if(row.cap<CAP_MIN||row.cap>CAP_MAX) row.s='warn'; }
+    return row;
+  });
+}
+
+// 总入口：某天的全部指导与检查
+function report(F, cfg, logs, today){
+  const cache = {};
+  const ws = weekStart(today), we = addDays(ws,6), ms = monthStart(today), me = monthEnd(today);
+  const plan = cache[ws] = planWeek(F,cfg,ws);
+  const res = {today, weekStart:ws, organType:plan.organType, plan, dogs:{}};
+  for(const key of ['doctor','missy']){
+    const W = periodTotals(F,cfg,logs,key,ws,we,today,cache);
+    const M = periodTotals(F,cfg,logs,key,ms,me,today,cache);
+    const todayT = logs[today]&&logs[today][key] ? dayTotal(F,logs[today][key]) : plan.dogs[key].days[today].tAll;
+    res.dogs[key] = {
+      todayPlan: plan.dogs[key].days[today], box: plan.dogs[key].box[today],
+      day: checkDay(F,cfg,key,todayT,mealKcal(cfg,key,today)),
+      treat: treatKcal(cfg,key,today),
+      week: checkPeriod(F,cfg,key,W,WEEKLY_K), weekN:{act:W.nAct,plan:W.nPlan},
+      month: checkPeriod(F,cfg,key,M,MONTHLY_K.concat(['se','i'])), monthN:{act:M.nAct,plan:M.nPlan},
+      boxAdjust: boxAdjust(F,cfg,logs,key,ws,today,plan),
+      meat: meatAdvice(F,cfg,logs,key,today,cache),
+      vegCapped: plan.dogs[key].vegCapped,
+    };
+  }
+  return res;
+}
+
+// 某天的主力肉（记录里克数最多的蛋白类）
+function mainMeat(F, entry){
+  let best=null,bg=0; for(const n in (entry&&entry.g)||{}) if(F[n]&&F[n].cat==='protein'&&entry.g[n]>bg){best=n;bg=entry.g[n]}
+  return best;
+}
+// 换肉提示：连续多天、或本月次数多 → 铁（和铜）会不够
+function meatAdvice(F, cfg, logs, key, today, cache){
+  const ms=monthStart(today), me=monthEnd(today);
+  const meatOf = d => (logs[d]&&logs[d][key]) ? mainMeat(F,logs[d][key]) : (d>=today?cfg.meat:null);
+  const low = n => n && F[n].fe < LOW_FE;
+  // 连续天数：从今天往前数
+  let streak=0; for(let d=today; low(meatOf(d)); d=addDays(d,-1)) streak++;
+  const monthDays = range(ms,me);
+  const lowDone = monthDays.filter(d=>d<today && low(meatOf(d))).length;
+  const M = periodTotals(F,cfg,logs,key,ms,me,today,cache);
+  const kc = cfg.dogs[key].kcal*M.nDays;
+  const fe = M.all.fe/needFor('fe',kc), cu = M.all.cu/needFor('cu',kc);
+  const res = {streak, lowDone, fe, cu, currentLow: low(cfg.meat), suggest:[], switchDays:0};
+  if(!res.currentLow && cu>=1.0){ res.warn=false; return res; }
+  // 推荐：铁最高的几种常用肉
+  const alts = Object.keys(F).filter(n=>F[n].cat==='protein' && F[n].fe>=LOW_FE && F[n].f<7)
+               .sort((a,b)=>F[b].fe-F[a].fe);
+  res.suggest = alts.slice(0,3);
+  // 还能再吃几天这种低铁肉：之后换成首选肉，本月铁仍能到目标（逐天按各自那周的计划算）
+  if(alts.length){
+    const cAlt = Object.assign({},cfg,{meat:alts[0]}), pc={}, pa={};
+    const feOn = (c,cache,d)=>{const w=weekStart(d);return (cache[w]||(cache[w]=planWeek(F,c,w))).dogs[key].days[d].tAll.fe};
+    const future = monthDays.filter(d=>d>=today && !(logs[d]&&logs[d][key]));
+    const A = future.map(d=>feOn(cfg,pc,d)), B = future.map(d=>feOn(cAlt,pa,d));
+    const past = M.act.fe, target = MARGIN*needFor('fe',kc);
+    let k=-1;
+    for(let x=0;x<=future.length;x++){
+      let s=past; for(let i=0;i<future.length;i++) s += i<x ? A[i] : B[i];
+      if(s>=target) k=x; else break;
+    }
+    res.daysLeft = k;                      // -1 = 本月已经补不回来
+    res.ifSwitchNow = (past + B.reduce((p,q)=>p+q,0))/needFor('fe',kc);
+  }
+  res.cuLow = cu < 1.0;
+  res.warn = streak>=STREAK_MAX || (res.currentLow && res.daysLeft<=3) || res.cuLow;
+  return res;
+}
+
+// 周中如果实际偏离计划，重算本周剩余几天补充剂（锌、碘）需不需要调整药盒
+function boxAdjust(F, cfg, logs, key, ws, today, plan){
+  const dog=cfg.dogs[key], days=range(ws,addDays(ws,6)), kcW=dog.kcal*7;
+  let t=zero(); const rest=[];
+  days.forEach(d=>{
+    const L=logs[d]&&logs[d][key];
+    if(L) t=sumT(t,dayTotal(F,L));
+    else { rest.push(d); const p=plan.dogs[key].days[d]; t=sumT(t,addSupp(Object.assign(zero(),p.t),{})); }
+  });
+  // t = 已吃的(含已给补充剂) + 剩余天的食物(不含补充剂)
+  const restBox = rest.reduce((a,d)=>{const b=plan.dogs[key].box[d];a.zn+=b.znTab;a.i+=b.iTab;return a},{zn:0,i:0});
+  const znNeed = Math.max(0,Math.ceil((needFor('zn',kcW)*MARGIN - t.zn)/SUPP.zn.mgPerTab));
+  const iNeed  = Math.max(0,Math.ceil((needFor('i',kcW)*MARGIN - t.i)/SUPP.i.ugPerTab));
+  const notes=[];
+  if(znNeed!==restBox.zn) notes.push({k:'zn', boxed:restBox.zn, need:znNeed});
+  if(iNeed!==restBox.i)   notes.push({k:'i',  boxed:restBox.i,  need:iNeed});
+  return notes;
+}
+
+// ───────────────────────── 做块：批次 ─────────────────────────
+// 推荐冰格块数：让 Doctor 每天 1 块
+function batchSheet(F, cfg, wsDate){
+  const P = planWeek(F,cfg,wsDate), dD=P.dogs.doctor.days[wsDate], dM=P.dogs.missy.days[wsDate];
+  const type = P.organType;
+  const organDay = dD.organG + dM.organG, fishDay = dD.fishG + dM.fishG;
+  const mk = (perDayD, perDayM, days) => {
+    const per = perDayD;                         // 一块 = Doctor 一天的量
+    const cubesM = Math.max(1,Math.round(perDayM/per));
+    return {cubeRaw:per, cubesPerDay:{doctor:1, missy:cubesM}, cubes:(1+cubesM)*days};
+  };
+  const rec = type==='pork'?cfg.organ.pork:cfg.organ.chicken;
+  const rawPack = Object.values(rec).reduce((a,b)=>a+b,0);
+  const organDays = type==='pork'?7:14;
+  const used = organDay*organDays;
+  const fd = type==='chicken' ? fdPerDay(F,cfg,wsDate) : {doctor:0,missy:0};
+  const fdBatch = Math.round((fd.doctor+fd.missy)*14);
+  return {
+    organType:type,
+    organ: Object.assign({recipe:rec, pack:rawPack, use:Math.min(rawPack,used), discard:Math.max(0,rawPack-used), days:organDays,
+             fd: type==='chicken'?{name:cfg.organ.fd, g:fdBatch, capped:!!fd.capped}:null}, mk(dD.organG,dM.organG,organDays)),
+    fish:  (()=>{ const dF=dD.fishG, mF=dM.fishG, both=dF+mF;
+             const alt = cfg.fishAlt===true && dF>0;
+             const cube = alt ? 2*dF : (dF>0 ? dF : mF);
+             const cm = mF>0 ? Math.max(1, Math.round(mF/(cube||1))) : 0;
+             const dWeek = dF>0 ? (alt ? FISH_DAYS.size : 7) : 0;
+             return {name:cfg.fish, days:7, cubeRaw:cube, cubes:dWeek+7*cm, raw: alt ? cube*(dWeek+7*cm) : both*7,
+                     share: both>0 ? {doctor:dF/both, missy:mF/both} : {doctor:0, missy:0},
+                     cubesPerDay:{doctor: dF>0 ? (alt?dWeek/7:1) : 0, missy:cm}, doctorDays: alt?[...FISH_DAYS]:null}; })(),
+    veg:   (()=>{ const both=dD.vegG+dM.vegG, days=cfg.vegDays||VEG_DAYS;
+             const tot=Object.values(cfg.veg).reduce((a,b)=>a+b,0)||1, mix={};
+             for(const n in cfg.veg) mix[n]=both*days*cfg.veg[n]/tot;
+             return {mix, perDay:{doctor:dD.vegG, missy:dM.vegG}, batchDays:days, maxBatchRaw:VEG_MAX_RAW, over: both*days>VEG_MAX_RAW+0.5}; })(),
+  };
+}
+
+const API = {recSteps,fdDoses,EGG_WHITE,EGG_YOLK,recState,recFrac,recoveryStep,recoveryAdded,applyVegRamp,VEG_ROTATION,VEG_DAYS,VEG_MAX_RAW,vegRotNext,vegRotIndex,AAFCO,AAMAX,MARGIN,TARGET,LOW_FE,CU_SOFT,NM,WD,SUPP,fdPerDay,treatKcal,mealKcal,TREAT_KCAL_PER_G,meatAdvice,mainMeat,vegPer100,carbParts,eggPlan,RECOVERY_STEPS,applyRecovery,recoveryNext,
+  pd,ds,addDays,weekStart,monthStart,monthEnd,range,weekdayOf,
+  zero,addFood,addSupp,dayTotal,nrcKcal,finalize,defaultConfig,organTypeOfWeek,planWeek,planToLog,
+  periodTotals,checkDay,checkPeriod,report,batchSheet,solveMain,per100};
+if(typeof module!=='undefined' && module.exports) module.exports = API; else root.DMCore = API;
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
+'use strict';
+const F = window.FOODS, C = window.DMCore;
+const DOGS = ['doctor','missy'];
+const DOGN = {doctor:'Doctor', missy:'Missy'};
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const short = n => String(n).replace(/\(.*?\)/,'');
+const g1 = g => (g>0 && g<10) ? (Math.round(g*10)/10).toString() : Math.round(g).toString();
+const wd = d => C.WD[C.weekdayOf(d)];
+const md = d => (+d.slice(5,7))+'月'+(+d.slice(8,10))+'日';
+const clone = o => JSON.parse(JSON.stringify(o));
+const sum = o => Object.values(o||{}).reduce((a,b)=>a+(+b||0),0);
+const TYPE_N = {chicken:'鸡内脏周', pork:'猪肝周'};
+const PROTEINS = Object.keys(F).filter(n=>F[n].cat==='protein');
+const CARBS = Object.keys(F).filter(n=>F[n].cat==='carb');
+const VEGS = Object.keys(F).filter(n=>F[n].cat==='veg' && !/莓/.test(n));
+const FISHES = Object.keys(F).filter(n=>F[n].cat==='fish');
+const FDS = Object.keys(F).filter(n=>F[n].cat==='organ_fd');
+const ORGAN_SET = new Set(['organ','organ_fd','blood_fd']);
+
+let TODAY = C.ds(new Date());
+
+/* ───────────── 状态 ───────────── */
+function freshCfg(){
+  const c = C.defaultConfig();
+  c.organ.anchor = {week: C.weekStart(TODAY), type:'chicken'};
+  c.vegScale = 0.25;
+  c.vegAuto = true;
+  c.eggSep1 = true;
+  c.organMode = 'fd';        // 内脏用冻干：每天称克数，不做内脏块          // 菜泥按轮换建议；点了菜就变成自选
+  return c;
+}
+function mergeCfg(saved){
+  const d = freshCfg(); if(!saved) return d;
+  const out = clone(d);
+  if(!saved.eggSep1){ saved = Object.assign({}, saved, {eggInVeg:false, eggSep1:true}); }   // 2026-10-19 起鸡蛋默认单独给
+  for(const k in saved){
+    const v = saved[k];
+    if(v && typeof v==='object' && !Array.isArray(v) && out[k] && typeof out[k]==='object' && k!=='veg'){
+      for(const k2 in v){
+        const v2 = v[k2];
+        if(v2 && typeof v2==='object' && !Array.isArray(v2) && out[k][k2] && typeof out[k][k2]==='object' && !['chicken','pork'].includes(k2))
+          out[k][k2] = Object.assign({}, out[k][k2], v2);
+        else out[k][k2] = v2;
+      }
+    } else out[k] = v;
+  }
+  return out;
+}
+function lsGet(){ try{ return JSON.parse(localStorage.getItem('dmk2')) }catch(e){ return null } }
+function lsSet(){ try{ localStorage.setItem('dmk2', JSON.stringify(ST)) }catch(e){} }
+
+const SEED = {"cfg": {"anchorConfirmed": true, "carb": "大米(干)", "carb2": "", "dogs": {"doctor": {"cuSoft": false, "foCapPerDay": 1, "kcal": 300, "meals": 2, "name": "Doctor 弟弟", "noEgg": false, "noFish": false, "vegFiberMax": 0.2, "wkg": 8}, "missy": {"cuSoft": true, "foCapPerDay": 0, "kcal": 610, "meals": 2, "name": "Missy 妹妹", "noEgg": false, "noFish": false, "vegFiberMax": 0.3, "wkg": 11}}, "egg": {"days": {"doctor": [6, 0, 1, 2, 3, 4], "missy": [6, 0, 1, 2, 3, 4]}, "g": {"doctor": 25, "missy": 50}, "name": "水煮蛋(全蛋)"}, "eggInVeg": false, "eggSep1": true, "fish": "秋刀鱼(生)", "meat": "牛腱子(蒸,去脂)", "organ": {"anchor": {"type": "chicken", "week": "2026-10-17"}, "blood": "冻干兔血块", "chicken": {"鸡心(生)": 100, "鸡肝(生)": 100, "鸡肠(生)": 100, "鸡胗(生)": 100}, "fd": "冻干牛肝", "fdBatchG": null, "pork": {"猪肝(生)": 280}}, "organMode": "fd", "pctP": 45, "recovery": {"hist": [{"date": "2026-10-24", "k": "organ"}, {"date": "2026-10-24", "k": "organ"}, {"date": "2026-10-24", "k": "supp"}, {"date": "2026-10-24", "k": "blood"}, {"date": "2026-10-24", "k": "blood"}, {"date": "2026-10-24", "k": "kcal"}], "kcal": {"doctor": 275, "missy": 555}, "lv": {"blood": 2, "kcal": 1, "organ": 2, "supp": 1}, "on": true, "start": "2026-10-22", "v": 2}, "supp": {"veDay": 3, "znDays": [1, 4]}, "veg": {"西葫芦(生)": 1}, "vegAuto": true, "vegScale": 0.25}, "batches": [], "months": {"2026-10": {"days": {"2026-10-18": {"doctor": {"at": "2026-10-18T06:42:12.373Z", "fromPlan": true, "g": {"兔里脊(蒸)": 109.29776913512805, "大米(干)": 34.65835089806149, "水煮蛋(全蛋)": 25}, "s": {"caG": 0.95, "foCap": 0, "iTab": 0, "veCap": 0, "znTab": 0}}, "missy": {"at": "2026-10-18T06:42:12.374Z", "fromPlan": true, "g": {"兔里脊(蒸)": 203.83728082372238, "大米(干)": 64.10334949186367, "水煮蛋(全蛋)": 50}, "s": {"caG": 1.75, "foCap": 0, "iTab": 0, "veCap": 0, "znTab": 0}}}, "2026-10-20": {"doctor": {"at": "2026-10-20T06:21:54.173Z", "fromPlan": true, "g": {"大米(干)": 36.76141168854602, "鸭胸肉(蒸,去皮)": 128.3801378878491}, "s": {"caG": 0.95, "foCap": 0, "iTab": 0, "vdCap": 0, "veCap": 0, "znTab": 0}}, "missy": {"at": "2026-10-20T06:21:54.173Z", "fromPlan": true, "g": {"大米(干)": 68.92764691602379, "鸭胸肉(蒸,去皮)": 240.71275853971707}, "s": {"caG": 1.75, "foCap": 0, "iTab": 0, "vdCap": 0, "veCap": 0, "znTab": 0}}}, "2026-10-24": {"doctor": {"at": "2026-10-27T14:05:26.020Z", "fromPlan": true, "g": {"冻干兔血块": 0.5, "冻干牛肝": 1.5, "大米(干)": 34.56236622946416, "鸭胸肉(蒸,去皮)": 115.80839223827225}, "s": {"caG": 0.9, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 0, "znTab": 0}}, "missy": {"at": "2026-10-27T14:05:26.020Z", "fromPlan": true, "g": {"冻干兔血块": 0.5, "冻干牛肝": 2.5, "大米(干)": 70.15173689812929, "鸭胸肉(蒸,去皮)": 237.99082443902103}, "s": {"caG": 1.85, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 0, "znTab": 0}}}, "2026-10-25": {"doctor": {"at": "2026-10-24T16:25:31.799Z", "fromPlan": true, "g": {"兔里脊(蒸)": 106.2503884148218, "冻干兔血块": 1, "冻干牛肝": 1.5, "大米(干)": 39.43064439669154}, "s": {"caG": 0.9, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 0, "znTab": 0}}, "missy": {"at": "2026-10-24T16:25:31.799Z", "fromPlan": true, "g": {"兔里脊(蒸)": 215.69753480021245, "冻干兔血块": 1.5, "冻干牛肝": 3, "大米(干)": 79.49368332406681}, "s": {"caG": 1.8, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 0, "znTab": 0}}}, "2026-10-26": {"doctor": {"at": "2026-10-26T00:27:34.169Z", "fromPlan": true, "g": {"冻干兔血块": 0.5, "冻干牛肝": 1.5, "大米(干)": 34.84956455614112, "鸭胸肉(蒸,去皮)": 116.81136135959778}, "s": {"caG": 0.95, "foCap": 0, "iTab": 0, "vdCap": 1, "veCap": 0, "znTab": 1}}, "missy": {"at": "2026-10-26T00:27:34.170Z", "fromPlan": true, "g": {"冻干兔血块": 0.5, "冻干牛肝": 2.5, "大米(干)": 70.20917657890395, "鸭胸肉(蒸,去皮)": 238.19141831720398}, "s": {"caG": 1.85, "foCap": 0, "iTab": 1, "vdCap": 1, "veCap": 0, "znTab": 1}}}, "2026-10-27": {"doctor": {"at": "2026-10-27T11:07:33.773Z", "fromPlan": true, "g": {"冻干兔血块": 0.5, "冻干牛肝": 1.5, "大米(干)": 34.84956455614112, "鸭胸肉(蒸,去皮)": 116.81136135959778}, "s": {"caG": 0.95, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 0, "znTab": 0}}, "missy": {"at": "2026-10-27T11:07:33.773Z", "fromPlan": true, "g": {"冻干兔血块": 0.5, "冻干牛肝": 2.5, "大米(干)": 70.20917657890395, "鸭胸肉(蒸,去皮)": 238.19141831720398}, "s": {"caG": 1.85, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 0, "znTab": 0}}}, "2026-10-28": {"doctor": {"at": "2026-10-28T11:28:02.417Z", "fromPlan": true, "g": {"冻干兔血块": 1, "冻干牛肝": 2, "大米(干)": 35.307612584715386, "牛腱子(蒸,去脂)": 109.22306166857918}, "s": {"caG": 0.85, "foCap": 0, "iTab": 0, "vdCap": 0, "veCap": 1, "znTab": 0}}, "missy": {"at": "2026-10-28T11:28:02.417Z", "fromPlan": true, "g": {"冻干兔血块": 2, "冻干牛肝": 3.5, "大米(干)": 71.80372299549965, "牛腱子(蒸,去脂)": 223.36097063710187}, "s": {"caG": 1.7, "foCap": 0, "iTab": 1, "vdCap": 0, "veCap": 1, "znTab": 0}}}}}}};
+let ST = lsGet() || (()=>{ const s = JSON.parse(JSON.stringify(SEED)); try{ localStorage.setItem('dmk2', JSON.stringify(s)); }catch(e){} return s; })();
+ST.cfg = mergeCfg(ST.cfg); ST.batches = ST.batches || []; ST.months = ST.months || {};
+let UI = {tab: (location.hash||'').slice(1) || 'today', dog:'missy', setDog:'doctor', mode:'suggest'};
+// 干重碳水：建议加水（按重量，水 = 干重 × 倍数）；面条类多放水煮、沥干
+const CARB_WATER = {'大米(干)':{x:1.5, how:'蒸或电饭煲，水是干米重量的 1.5 倍，煮软一点好消化'}, '即食燕麦(干)':{x:3, how:'煮成粥，水是干燕麦重量的 3 倍'},
+  '五黑奇亚籽麦片(干)':{x:3, how:'开水冲泡或小火煮几分钟，水是干麦片重量的 3 倍，泡软再喂'},
+  '意面(干)':{x:0, how:'多放水煮软，沥干后再称'}, '挂面(干)':{x:0, how:'多放水煮软，沥干后再称'}};
+// 今天煮好后称的总重：{date, items:{食材:{dry, total}}}，只存在这台设备上
+let COOK = (()=>{ try{ return JSON.parse(localStorage.getItem('dmk2cook'))||{}; }catch(e){ return {}; } })();
+const cookToday = () => (COOK && COOK.date===TODAY && COOK.items) ? COOK.items : {};
+function saveCook(){ try{ localStorage.setItem('dmk2cook', JSON.stringify(COOK)); }catch(e){} }
+// 某只狗这种碳水今天该吃的熟重（全天）；没称过返回 null
+function cookedFor(n, dryG){ const c = cookToday()[n]; return (c && c.total>0 && c.dry>0) ? c.total*dryG/c.dry : null; }
+UI.tab = ({batch:'prep', check:'dogs', set:'dogs'})[UI.tab] || UI.tab;
+if(!['today','prep','dogs'].includes(UI.tab)) UI.tab='today';
+try{ const m = localStorage.getItem('dmk2mode'); if(m==='pick'||m==='suggest') UI.mode = m; }catch(e){}
+
+const monthKey = d => d.slice(0,7);
+function allLogs(){ const L={}; for(const m in ST.months) Object.assign(L, ST.months[m].days||{}); return L; }
+
+/* ───────────── 本机存储与备份 ───────────── */
+function saveCfg(){ lsSet(); }
+function saveMonth(m){ lsSet(); }
+const BK_KEY = 'dmk2backup';
+function lastBackup(){ try{ return localStorage.getItem(BK_KEY)||''; }catch(e){ return ''; } }
+function backupAge(){ const b = lastBackup(); return b ? Math.floor((C.pd(TODAY)-C.pd(b.slice(0,10)))/86400000) : null; }
+let SYNC='local', SYNCMSG='';
+function syncMsg(){ const n = backupAge(); SYNC = (n===null||n>14) ? 'err' : 'ok';
+  SYNCMSG = n===null ? '还没备份过' : n===0 ? '今天已备份' : `${n} 天前备份`; }
+async function exportData(){
+  const data = {app:'dm-kitchen', v:1, at:new Date().toISOString(), ST, COOK, mode:UI.mode};
+  const name = `狗狗厨房备份-${TODAY}.json`;
+  const text = JSON.stringify(data);
+  const mark = ()=>{ try{ localStorage.setItem(BK_KEY, TODAY); }catch(e){} render(); };
+  try{
+    const file = new File([text], name, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:name});
+      mark(); toast('已导出备份'); return;
+    }
+  }catch(e){ if(e && e.name==='AbortError') return; }
+  const url = URL.createObjectURL(new Blob([text], {type:'application/json'}));
+  const a = document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  mark(); toast('已导出备份');
+}
+function importData(file){
+  const r = new FileReader();
+  r.onload = ()=>{
+    let d; try{ d = JSON.parse(r.result); }catch(e){ toast('这个文件读不了'); return; }
+    if(!d || d.app!=='dm-kitchen' || !d.ST || !d.ST.cfg){ toast('这不是狗狗厨房的备份文件'); return; }
+    if(!confirm(`用 ${String(d.at||'').slice(0,10)} 的备份替换手机上现在的数据？`)) return;
+    ST = d.ST; ST.cfg = mergeCfg(ST.cfg); ST.batches = ST.batches||[]; ST.months = ST.months||{};
+    lsSet();
+    if(d.COOK){ COOK = d.COOK; saveCook(); }
+    if(d.mode==='pick'||d.mode==='suggest'){ UI.mode = d.mode; try{ localStorage.setItem('dmk2mode', d.mode) }catch(e){} }
+    CACHE = {}; render(); toast('已恢复备份');
+  };
+  r.readAsText(file);
+}
+function setLog(date, dog, entry){
+  const m = monthKey(date);
+  ST.months[m] = ST.months[m] || {days:{}};
+  const day = ST.months[m].days[date] = ST.months[m].days[date] || {};
+  if(entry) day[dog] = entry; else delete day[dog];
+  if(!Object.keys(day).length) delete ST.months[m].days[date];
+  saveMonth(m);
+}
+function batchesOf(kind){ return ST.batches.filter(b=>b.kind===kind).sort((a,b)=>a.made<b.made?1:-1); }
+// 某批到某天（不含）已经吃掉多少（块或克）
+function usedBefore(b, upto){
+  let n=0;
+  for(let d=b.made; d<upto; d=C.addDays(d,1)){
+    if(b.kind==='organ' && C.organTypeOfWeek(ST.cfg, C.weekStart(d))!==b.type) continue;
+    n += b.perDay;
+  }
+  return n;
+}
+const MAXAGE = {organ:42, fish:14, veg:3};
+function activeBatch(kind, type, date){
+  date = date||TODAY;
+  for(const b of batchesOf(kind)){
+    if(type && b.type!==type) continue;
+    if(b.made>date) continue;
+    const age = Math.round((C.pd(date)-C.pd(b.made))/864e5);
+    if(age>=MAXAGE[kind]) continue;
+    const left = b.total - usedBefore(b, date);
+    if(left > 1e-6) return {b, left};
+  }
+  return null;
+}
+// 一批里某只狗每天的生重（按份额和天数）
+function batchDayMap(b, dog){
+  const m={}; if(!b.days || !b.share) return m;
+  for(const n in b.recipe) m[n] = b.recipe[n]*b.share[dog]/b.days;
+  return m;
+}
+// 第 i 个吃这批的日子给几块：把 C 格平均摊到 N 天
+function cubesOn(b, dog, date){
+  if(!b.cells || !(b.cells[dog]>0)) return null;
+  const i = usedBefore(b, date), Cc = b.cells[dog], N = b.days;
+  return Math.ceil((i+1)*Cc/N - 1e-9) - Math.ceil(i*Cc/N - 1e-9);
+}
+const shareOf = cfg => { const kD=cfg.dogs.doctor.kcal, kM=cfg.dogs.missy.kcal; return {doctor:kD/(kD+kM), missy:kM/(kD+kM)}; };
+const fracTxt = x => Math.abs(x-1/3)<0.01?'约三分之一':Math.abs(x-2/3)<0.01?'约三分之二':Math.abs(x-0.5)<0.01?'一半':'';
+// 最近一批菜泥用的菜（只看菜，不含蛋）
+function lastVegMix(){
+  const bs = ST.batches.filter(b=>b.kind==='veg').sort((a,b)=>a.made<b.made?-1:a.made>b.made?1:(a.id<b.id?-1:1));
+  const b = bs[bs.length-1]; if(!b) return null;
+  const v={}; for(const n in (b.recipe||{})) if(F[n]&&F[n].cat==='veg') v[n]=b.recipe[n];
+  return Object.keys(v).length ? v : null;
+}
+// 恢复期、菜还在适应期时只用最熟悉的一组，不换菜
+const vegSteady = () => (ST.cfg.recovery && ST.cfg.recovery.on) || (ST.cfg.vegScale!=null && ST.cfg.vegScale<1);
+function vegQueue(n){
+  if(ST.cfg.vegAuto===false) return [clone(ST.cfg.veg)];
+  if(vegSteady()) return [Object.assign({}, C.VEG_ROTATION[0])];
+  return C.vegRotNext(lastVegMix(), n||1);
+}
+const nextVeg = () => vegQueue(1)[0];
+function effCfg(){
+  const c = clone(ST.cfg);
+  if(UI.mode!=='pick'){ const S = suggestion(); c.meat = S.meat; c.carb = S.carb; c.carb2 = S.carb2; }
+  const cb = activeBatch('organ','chicken');
+  c.organ.fdBatchG = cb ? cb.b.fdG : null;
+  const vb = activeBatch('veg');
+  let usedBatch = false;
+  if(vb){ const v={}; for(const n in (vb.b.recipe||{})) if(F[n]&&F[n].cat==='veg') v[n]=vb.b.recipe[n]; if(Object.keys(v).length){ c.veg=v; usedBatch=true; } }
+  if(!usedBatch) c.veg = nextVeg();
+  return C.applyVegRamp(C.applyRecovery(c));
+}
+let CACHE = {};
+function planFor(cfg, date){
+  const ws = C.weekStart(date);
+  return CACHE[ws] || (CACHE[ws] = C.planWeek(F, cfg, ws));
+}
+// 把计划里某只狗一天的克数分成：肉、碳水、内脏块、鱼块、菜泥、蛋
+function splitDay(g){
+  const r = {meat:null, meatG:0, carb:null, carbG:0, carbs:[], organ:{}, fish:null, fishG:0, veg:{}, egg:0, other:{}};
+  for(const n in g){
+    const c = F[n] ? F[n].cat : '';
+    if(c==='protein'){ r.meat=n; r.meatG=g[n]; }
+    else if(c==='carb'){ r.carbs.push([n,g[n]]); if(!r.carb){ r.carb=n; r.carbG=g[n]; } }
+    else if(ORGAN_SET.has(c)) r.organ[n]=g[n];
+    else if(c==='fish'){ r.fish=n; r.fishG=g[n]; }
+    else if(c==='veg') r.veg[n]=g[n];
+    else if(c==='egg'){ r.egg+=g[n]; (r.eggParts=r.eggParts||{})[n]=g[n]; }
+    else r.other[n]=g[n];
+  }
+  return r;
+}
+function compute(){
+  CACHE = {};
+  const cfg = effCfg();
+  const logs = allLogs();
+  const R = C.report(F, cfg, logs, TODAY);
+  CACHE[R.weekStart] = R.plan;
+  const sheet = C.batchSheet(F, Object.assign(clone(cfg), {veg:nextVeg(), organ:Object.assign(clone(cfg.organ),{fdBatchG:null})}), R.weekStart);
+  return {cfg, logs, R, sheet};
+}
+
+/* ───────────── 渲染工具 ───────────── */
+function amt(g, unit){ return `<span class="num">${g1(g)}</span><span class="unit">${unit||'g'}</span>`; }
+function eggText(g, dog){
+  if(!g) return '';
+  const n = g/50; const t = n===0.25?'¼':n===0.5?'½':n===0.75?'¾':(Math.round(n*100)/100).toString();
+  return t+' 个';
+}
+function boxItems(b){
+  const out=[];
+  if(b.caG) out.push(`<span class="tag key">钙粉 全天 <span class="num">${b.caG.toFixed(2)}</span> g</span>`);
+  if(b.iTab) out.push(`<span class="tag">碘片 ${b.iTab}</span>`);
+  if(b.znTab) out.push(`<span class="tag key">锌片 ${b.znTab}</span>`);
+  if(b.veCap) out.push(`<span class="tag key">维E ${b.veCap} 粒</span>`);
+  if(b.vdCap) out.push(`<span class="tag key">维D ${b.vdCap} 粒</span>`);
+  return out.join('');
+}
+let toastT=null;
+function toast(msg){
+  $('#toastHost').innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`;
+  clearTimeout(toastT); toastT=setTimeout(()=>{$('#toastHost').innerHTML=''},2600);
+}
+function paintHdr(X){
+  X = X || LAST; syncMsg();
+  const type = X ? X.R.organType : C.organTypeOfWeek(ST.cfg, C.weekStart(TODAY));
+  $('#hdr').innerHTML = `<span>${md(TODAY)} ${wd(TODAY)}</span>
+    ${TYPE_N[type]?`<span class="pill ${type}">${TYPE_N[type]}</span>`:''}
+    <span class="sync" title="${esc(SYNCMSG)}">${SYNC==='ok'?'● ':'▲ '}${esc(SYNCMSG)}</span>`;
+}
+
+/* ───────────── 提醒（只留要动手的） ───────────── */
+function alerts(X){
+  const {R, cfg, logs} = X, out = [];
+  const type = R.organType;
+  for(const k of DOGS) if(!R.dogs[k].todayPlan.ok) out.push({cls:'bad', html:`<b>${DOGN[k]} 今天的量算不出来</b><br>这种肉和碳水凑不出现在的热量和蛋白比例，换一种试试。`});
+  const due = prepStatus(X).filter(s=>s.level==='now');
+  if(due.length) out.push({cls:'info', html:`<b>今天要做：${due.map(s=>s.name).join('、')}</b>`, act:`<button class="btn small" data-go="prep">去备料</button>`});
+  if(UI.mode==='pick' && !cfg.inRecovery){
+    const A = R.dogs.missy.meat;
+    if(A && A.warn && A.currentLow) out.push({cls:'bad', html:`<b>${short(cfg.meat)}最近吃得多</b><br>${A.daysLeft>=0?`这个月最多再吃 ${A.daysLeft} 天，之后换成${short(A.suggest[0])}。`:`这个月铁已经不够了，换成${short(A.suggest[0])}。`}`});
+  }
+  for(const k of DOGS) for(const a of R.dogs[k].boxAdjust){
+    if(cfg.inRecovery) continue;
+    const nm = a.k==='zn'?'锌片':'碘片', diff = a.need - a.boxed;
+    out.push({cls:'', html:`<b>${DOGN[k]} 药盒要调：${nm}</b><br>这周剩下的格子里${diff>0?`再加 ${diff} 片`:`拿掉 ${-diff} 片`}。`});
+  }
+  const miss = C.range(R.weekStart, C.addDays(TODAY,-1)).filter(d=>!(logs[d]&&logs[d].doctor&&logs[d].missy));
+  if(miss.length) out.push({cls:'', html:`<b>${miss.map(wd).join('、')} 还没记录</b>`, act:`<button class="btn small ghost" data-go="dogs">去补记</button>`});
+  const ba = backupAge();
+  if(ba===null || ba>14) out.push({cls:'', html:`<b>${ba===null?'还没备份过数据':`已经 ${ba} 天没备份`}</b><br>数据只存在这台手机上，导出一份存到「文件」里更安心。`, act:`<button class="btn small" data-export="1">导出备份</button>`});
+  return out;
+}
+function alertHtml(list){
+  if(!list.length) return '';
+  return `<section class="stack">${list.map(a=>`<div class="alert ${a.cls}"><div>${a.html}${a.act?`<div class="act">${a.act}</div>`:''}</div></div>`).join('')}</section>`;
+}
+
+/* ───────────── 今天吃什么 ───────────── */
+// 建议：平时鸭胸+大米（铁、铜都多，纤维低）；恢复期瘦肉+白米饭
+function suggestion(){
+  const r = ST.cfg.recovery;
+  if(r && r.on){
+    const m = (F[ST.cfg.meat] && F[ST.cfg.meat].cat==='protein' && F[ST.cfg.meat].f<=5) ? ST.cfg.meat : '鸡胸肉(蒸,去皮)';
+    return {meat:m, carb:'大米(干)', carb2:'', why:'恢复期：瘦肉加白米饭，脂肪低、好消化'};
+  }
+  return {meat:'鸭胸肉(蒸,去皮)', carb:'大米(干)', carb2:'', why:'鸭胸铁和铜都多，大米纤维低，两只狗吃着最稳'};
+}
+// 下一档会让 Missy 一天多出多少脂肪（g）
+function recFatDelta(){
+  try{
+    const st = C.recoveryStep(ST.cfg, TODAY, 1); if(!st.k) return null;
+    const ws = C.weekStart(TODAY);
+    const fatOf = cfg => { const c = clone(cfg); if(UI.mode!=='pick'){ const S=suggestion(); c.meat=S.meat; } const P = C.planWeek(F, C.applyRecovery(c), ws);
+      const ds = Object.values(P.dogs.missy.days); return ds.reduce((a,r)=>a+r.tAll.f,0)/ds.length; };
+    const now = fatOf(ST.cfg), next = fatOf(Object.assign({}, ST.cfg, {recovery:st.r}));
+    return {now, next, d: next-now};
+  }catch(e){ return null; }
+}
+function recoveryStrip(X){
+  const r = ST.cfg.recovery; if(!r || !r.on) return '';
+  const N = C.recoveryNext(ST.cfg, TODAY);
+  const dayN = Math.round((C.pd(TODAY)-C.pd(r.start))/864e5)+1;
+  const added = C.recoveryAdded(ST.cfg);
+  let next = '', act = '';
+  if(N.finished){ next = '都加回来了。便便一直正常，就可以结束恢复期。'; act = `<button class="btn small primary" data-rec="end">结束恢复期</button>`; }
+  else {
+    const lbl = N.next.k==='kcal' ? '热量加 10%' : `加到：${N.label}`;
+    const fd = recFatDelta();
+    const fatTxt = fd ? `Missy 一天脂肪 ${fd.d>=0.05?'多 '+fd.d.toFixed(1)+' g':'基本不变'}（现在约 ${fd.now.toFixed(0)} g）。` : '';
+    next = (N.ready ? `便便连续 2–3 天成型，就可以<b>${lbl}</b>。` : `下一档：${md(N.earliest)} 起<b>${lbl}</b>，先看两三天便便。`) + fatTxt;
+    act = `<button class="btn small ${N.ready?'primary':''}" data-rec="add">${N.ready?'':'提前'}${N.next.k==='kcal'?'热量加 10%':'加一档'}</button>`;
+  }
+  if(N.hist.length) act += `<button class="btn small ghost" data-rec="back">水样便，退一档</button>`;
+  return `<section class="alert info rec"><div><b>拉稀恢复期 · 第 ${dayN} 天</b><br>
+    现在吃：瘦肉、白米饭、钙粉${added.length?'、'+added.join('、'):''}<br><span class="note">${next}便便只是变软就停在这一档，不用退。</span>
+    <div class="act">${act}</div></div></section>`;
+}
+// 高纤维碳水提醒：两只狗肠道对纤维敏感，碳水带来的纤维和菜泥纤维额度对比
+function fiberWarn(used, dD, dM, cfg){
+  const hi = used.filter(n=>F[n] && F[n].fiber>=3); if(!hi.length) return '';
+  const fib = sp => sp.carbs.reduce((a,[n,g])=>a+(F[n].fiber||0)*g/100,0);
+  const fd = fib(dD), fm = fib(dM), capD = cfg.dogs.doctor.vegFiberMax*cfg.dogs.doctor.meals, capM = cfg.dogs.missy.vegFiberMax*cfg.dogs.missy.meals;
+  return `<div class="alert warn" style="margin-top:8px"><div><b>${hi.map(n=>esc(short(n))).join('、')}纤维高</b>（每 100 g ${hi.map(n=>F[n].fiber).join('、')} g，大米是 ${F['大米(干)'].fiber} g）<br>
+    <span class="note">今天碳水带来的纤维：Missy 约 <b>${g1(fm)} g</b>，Doctor 约 <b>${g1(fd)} g</b>；而菜泥给她们的纤维额度一天只有 ${g1(capM)} g / ${g1(capD)} g。两只狗对纤维都敏感，恢复期不要用；平时也建议只做第二种碳水、占 25% 以下，先试几天看便便。</span></div></div>`;
+}
+// 干重碳水的计算器：建议加多少水；输入实际干重和煮好后的总重，算出两只狗各吃多少熟的
+function cookCalc(n, dryNeed, dD, dM){
+  const W = CARB_WATER[n] || {x:0, how:'煮好后称总重'}, c = cookToday()[n] || {};
+  const dry = c.dry>0 ? c.dry : Math.round(dryNeed);
+  const per = (sp, k) => { const g = sp.carbs.filter(x=>x[0]===n).reduce((a,x)=>a+x[1],0), meals = ST.cfg.dogs[k].meals||2;
+    const cooked = c.total>0 ? c.total*g/dry : null; return {g, cooked, meals}; };
+  const d = per(dD,'doctor'), m = per(dM,'missy');
+  const res = c.total>0
+    ? `<p class="ratio" style="margin-top:8px">${esc(short(n))}熟重：<b>Doctor 每餐 <span class="num">${g1(d.cooked/d.meals)}</span> g</b>（全天 ${g1(d.cooked)}），<b>Missy 每餐 <span class="num">${g1(m.cooked/m.meals)}</span> g</b>（全天 ${g1(m.cooked)}）${dry>dryNeed+1?`。多煮的 ${g1(c.total*(1-(d.g+m.g)/dry))} g 留着下顿或明天`:''}${dry<dryNeed-1?`。干重比需要的少 ${g1(dryNeed-dry)} g，两只都会少吃一点`:''}</p>`
+    : '';
+  return `<div class="carbcook" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+    <div class="note" style="margin-bottom:6px"><b>${esc(short(n))}</b>：${W.x?`两只狗共 ${Math.round(dryNeed)} g 干重，加水约 <b class="num">${Math.round(dryNeed*W.x)}</b> g。`:''}${esc(W.how)}。</div>
+    <div class="field" style="border:0;padding:4px 0"><label class="l" for="ckd_${esc(n)}">下锅干重<small>g，实际用了多少</small></label><input id="ckd_${esc(n)}" type="number" inputmode="decimal" min="0" step="1" value="${dry}" data-cookdry="${esc(n)}"></div>
+    <div class="field" style="border:0;padding:4px 0"><label class="l" for="ckt_${esc(n)}">煮好后总重<small>g，去掉锅的净重</small></label><input id="ckt_${esc(n)}" type="number" inputmode="decimal" min="0" step="1" value="${c.total>0?c.total:''}" placeholder="称好填这里" data-cooktot="${esc(n)}"></div>
+    ${res}
+  </div>`;
+}
+function viewToday(X){
+  const {R, cfg, logs} = X;
+  const P = R.plan, dD = splitDay(P.dogs.doctor.days[TODAY].g), dM = splitDay(P.dogs.missy.days[TODAY].g);
+  const both = logs[TODAY] && logs[TODAY].doctor && logs[TODAY].missy;
+  const anyLogged = logs[TODAY] && (logs[TODAY].doctor || logs[TODAY].missy);
+  const S = suggestion(), pick = UI.mode==='pick';
+  const trainToday = !!(ST.cfg.train && ST.cfg.train.days && ST.cfg.train.days[TODAY]);
+  const carbTot = n => [dD,dM].reduce((a,x)=>a+x.carbs.filter(c=>c[0]===n).reduce((p,c)=>p+c[1],0),0);
+  const usedCarbs = [...new Set([...dD.carbs,...dM.carbs].map(c=>c[0]))];
+  let choose = '';
+  if(pick){
+    const has2 = !!(ST.cfg.carb2 && ST.cfg.carb2!==ST.cfg.carb && F[ST.cfg.carb2]);
+    const split = ST.cfg.carbSplit==null?0.5:ST.cfg.carbSplit;
+    const opt = (list, v, extra) => list.map(n=>`<option value="${esc(n)}"${n===v?' selected':''}>${esc(short(n))}${extra?extra(n):''}</option>`).join('');
+    choose = `<div class="cook">
+        <div class="cell"><label class="lbl" for="selMeat">肉</label><select id="selMeat" data-cfg="meat">${opt(PROTEINS, ST.cfg.meat, n=>F[n].fe<C.LOW_FE?'（铁少）':'')}</select></div>
+        <div class="cell"><label class="lbl" for="selCarb">碳水</label><select id="selCarb" data-cfg="carb">${opt(CARBS, ST.cfg.carb)}</select></div>
+        ${cfg.inRecovery?'':`<div class="cell"><label class="lbl" for="selCarb2">第二种碳水</label><select id="selCarb2" data-cfg="carb2"><option value="">不加</option>${opt(CARBS.filter(n=>n!==ST.cfg.carb), ST.cfg.carb2)}</select></div>`}
+      </div>
+      ${has2 && !cfg.inRecovery?`<div class="field" style="border:0;padding-bottom:0"><span class="l">${esc(short(ST.cfg.carb2))}占碳水热量</span>
+        <span class="seg" role="group">${[0.25,0.5,0.75].map(v=>`<button type="button" data-carbsplit="${v}" aria-pressed="${Math.abs(split-v)<1e-9}">${Math.round(v*100)}%</button>`).join('')}</span></div>`:''}
+      ${cfg.inRecovery?'<p class="note" style="margin:8px 0 0">恢复期碳水固定用白米饭。</p>':''}`;
+  } else {
+    choose = `<p style="margin:0"><b>${esc(short(S.meat))} + ${esc(short(S.carb))}</b></p><p class="note" style="margin:2px 0 0">${S.why}</p>`;
+  }
+  // 一起做时的分法：Missy 是 Doctor 的几倍（按肉算；碳水比例不同时另外标出）
+  const rM = dD.meatG>0 ? dM.meatG/dD.meatG : 0;
+  const cD = dD.carbs.reduce((s,c)=>s+c[1],0), cM = dM.carbs.reduce((s,c)=>s+c[1],0), rC = cD>0 ? cM/cD : rM;
+  const dShare = 1/(1+rM);
+  const ratioTxt = Math.abs(rC-rM) <= 0.05*rM
+    ? `Missy 吃的是 Doctor 的 <b class="num">${rM.toFixed(2)}</b> 倍。做好后称总重，<b>Doctor 分 ${Math.round(dShare*100)}%</b>，剩下给 Missy。`
+    : `肉：Missy 是 Doctor 的 <b class="num">${rM.toFixed(2)}</b> 倍（Doctor 分 ${Math.round(dShare*100)}%）；米饭：<b class="num">${rC.toFixed(2)}</b> 倍（Doctor 分 ${Math.round(100/(1+rC))}%）。`;
+  const cookLine = `<p class="note" style="margin:10px 0 0">两只狗一起蒸：${esc(short(cfg.meat))} 熟重共 <b class="num">${g1(dD.meatG+dM.meatG)}</b> g，${usedCarbs.map(n=>`${esc(short(n))} ${F[n].basis==='dry'?'干重':'熟重'}共 <b class="num">${g1(carbTot(n))}</b> g`).join('，')}。</p>
+    <p class="ratio">${ratioTxt}</p>
+    ${fiberWarn(usedCarbs, dD, dM, cfg)}
+    ${usedCarbs.filter(n=>F[n].basis==='dry').map(n=>cookCalc(n, carbTot(n), dD, dM)).join('')}`;
+  return recoveryStrip(X) + `
+  <section>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 style="margin:0">今天用什么</h2>
+        <span class="seg" role="group" style="margin-left:auto"><button type="button" data-mode="suggest" aria-pressed="${!pick}">建议</button><button type="button" data-mode="pick" aria-pressed="${pick}">自选</button></span>
+      </div>
+      ${choose}${cookLine}
+      <div class="field" style="border:0;padding-bottom:0;margin-top:6px"><span class="l">今天健身<small>正餐少给 ${Math.round(((ST.cfg.train&&ST.cfg.train.pct&&ST.cfg.train.pct.missy)||0.1)*100)}% 热量，留给训练零食</small></span>
+        <span class="seg" role="group"><button type="button" data-train="0" aria-pressed="${!trainToday}">不健身</button><button type="button" data-train="1" aria-pressed="${trainToday}">健身</button></span></div>
+    </div>
+  </section>` + alertHtml(alerts(X)) + `
+  <section>
+    <div class="dogs">${DOGS.map(k=>dogCard(X,k,TODAY)).join('')}</div>
+  </section>
+  <section>
+    ${both ? `<div class="done"><span>今天已记录</span><button class="btn small" data-undo="${TODAY}">撤销</button></div>`
+           : `<button class="btn primary wide" data-follow="${TODAY}">${anyLogged?'其余照这个记录':'照做了，记录今天'}</button>
+              <p class="note" style="text-align:center;margin:8px 0 0">哪只吃得不一样，先点它的「有变动」。</p>`}
+  </section>`;
+}
+
+/* ───────────── 备料 ───────────── */
+// 每一类：还够几天、什么时候要做
+function prepStatus(X){
+  const {R, cfg, sheet} = X, out = [];
+  const rd = cfg.inRecovery ? (cfg.recLv||{}) : null;
+  const type = R.organType, nextType = C.organTypeOfWeek(ST.cfg, C.addDays(R.weekStart,7));
+  const daysLeftOf = (kind, t) => { const ab = activeBatch(kind, t); return ab ? Math.floor(ab.left/ab.b.perDay+1e-6) : 0; };
+  const item = (key, name, paused, left, need, notNeeded, noDate) => {
+    let level, text;
+    if(paused){ level='paused'; text='恢复期暂停，加回这一步时再做'; }
+    else if(notNeeded){ level='ok'; text='这几天不用做'; }
+    else if(left<=0){ level='now'; text='没有了，今天要做'; }
+    else if(left<=need){ level='soon'; text=noDate?`还够 ${left} 天，快做下一批`:`还够 ${left} 天，${md(C.addDays(TODAY,left))} 前要做`; }
+    else { level='ok'; text=`还够 ${left} 天`; }
+    out.push({key, name, level, text, left});
+  };
+  const pd2 = DOGS.map(k=>splitDay(R.plan.dogs[k].days[TODAY].g));
+  const pureeToday = pd2.reduce((s,x)=>s+sum(x.veg)+(cfg.eggInVeg?x.egg:0),0);
+  // 内脏块：只在对应的周吃；猪肝周每周都要新做
+  const organName = type==='pork'?'猪肝块':'鸡内脏块';
+  if(cfg.organMode==='fd'){
+    const fdDay = (n) => DOGS.reduce((a,k)=>a+(R.plan.dogs[k].days[TODAY].g[n]||0),0);
+    const l = fdDay(cfg.organ.fd), b = fdDay(cfg.organ.blood);
+    if(rd && !rd.organ) out.push({key:'organ', name:'冻干内脏', level:'paused', text:'恢复期暂停，加回这一步时再给'});
+    else out.push({key:'organ', name:'冻干内脏', level:'ok', text: l>0 ? `每天牛肝 ${g1(l)} g${b>0?`、兔血 ${g1(b)} g`:''}（两只合计）。一包牛肝 70 g 约够 ${Math.floor(70/l)} 天${b>0?`，兔血 50 g 约够 ${Math.floor(50/b)} 天`:''}` : '这几天不用给'});
+  } else
+  item('organ', organName, rd && !rd.organ, daysLeftOf('organ', type), 2, false, true);
+  item('fish', '鱼块', rd && !rd.fish, daysLeftOf('fish', null), 2, sheet.fish.raw<1);
+  item('veg', cfg.eggInVeg?'菜蛋泥':'菜泥', rd && !rd.veg, daysLeftOf('veg', null), 1, pureeToday<1);
+  // 药盒：周四起提醒装下周
+  const wdNow = C.weekdayOf(TODAY);
+  if(!(cfg.inRecovery && cfg.suppOff)) out.push({key:'box', name:'药盒', level:(wdNow===4||wdNow===5)?'soon':'ok', text:(wdNow===4||wdNow===5)?`周六前装好下周（${md(C.addDays(R.weekStart,7))} 起）`:'本周已按表装好就行'});
+  else out.push({key:'box', name:'药盒', level:'paused', text:'恢复期只单独给钙粉'});
+  return out;
+}
+// 做下一批要准备的食材
+function shoppingList(X, st){
+  const {sheet, cfg, R} = X, list = [];
+  const want = k => st.find(s=>s.key===k && (s.level==='now'||s.level==='soon'));
+  if(want('organ')){
+    const O = sheet.organ;
+    for(const [n,g] of Object.entries(O.recipe)) list.push(`${short(n)} ${g} g${O.organType==='pork'?'（一盒）':''}`);
+    if(O.fd && !cfg.noFd) list.push(`${O.fd.name} ${O.fd.g} g`);
+  }
+  if(want('fish') && sheet.fish.raw>=1) list.push(`${short(sheet.fish.name)} 约 ${Math.round(sheet.fish.raw)} g（生）`);
+  if(want('veg')){
+    for(const [n,g] of Object.entries(sheet.veg.mix)) if(g>=1) list.push(`${short(n)} ${Math.round(g)} g`);
+    const eggDay = DOGS.reduce((s,k)=>s+(R.plan.dogs[k].days[TODAY].g['水煮蛋(全蛋)']||0),0);
+    if(cfg.eggInVeg && eggDay>0) list.push(`鸡蛋 ${Math.max(1,Math.round(eggDay*sheet.veg.batchDays/50))} 个`);
+  }
+  return list;
+}
+// 冻干内脏：一周每天的克数（按今天的计划），可以一次分装好
+function fdCard(X){
+  const {R, cfg} = X, P = R.plan, L = cfg.organ.fd, B = cfg.organ.blood;
+  const days = C.range(R.weekStart, C.addDays(R.weekStart,6));
+  const g = (k,d,n) => P.dogs[k].days[d].g[n]||0;
+  const tot = (k,n) => days.reduce((a,d)=>a+g(k,d,n),0);
+  const row = k => `<li><span><b>${DOGN[k]}</b></span><span>牛肝 <span class="num">${g1(g(k,TODAY,L))}</span> g${g(k,TODAY,B)>0?` · 兔血 <span class="num">${g1(g(k,TODAY,B))}</span> g`:''}</span></li>`;
+  return `<section class="card batch">
+    <ul class="recipe">${DOGS.map(row).join('')}</ul>
+    <ol class="steps">
+      <li>每天<b>晚餐</b>给一次，剪碎拌进饭里。用 0.1 g 的小秤称；或者先称几块的总重，算出一块多重，之后数块数。</li>
+      <li>克数是按铜、维A、B12（牛肝）和铁（兔血）的缺口算的，换肉、换热量会跟着变。Missy 的牛肝不会超过她的铜上限。</li>
+      <li>可以一周分装一次：本周 Doctor 牛肝 ${g1(tot('doctor',L))} g${tot('doctor',B)>0?`、兔血 ${g1(tot('doctor',B))} g`:''}，Missy 牛肝 ${g1(tot('missy',L))} g${tot('missy',B)>0?`、兔血 ${g1(tot('missy',B))} g`:''}。</li>
+      <li>开封后密封、放冰箱，尽快吃完。兔血会让便便颜色变深，属正常；但如果便便黑得像柏油、还很稀，要看兽医。</li>
+    </ol>
+  </section>`;
+}
+function viewPrep(X){
+  const st = prepStatus(X), list = shoppingList(X, st), cards = batchCards(X);
+  const icon = {now:'bad', soon:'warn', ok:'ok', paused:'info'};
+  const lab = {now:'要做', soon:'快吃完', ok:'够', paused:'暂停'};
+  const anchorAsk = (!ST.cfg.anchorConfirmed && X.cfg.organMode!=='fd') ? `<section class="alert info"><div><b>先确认：这周是${TYPE_N[X.R.organType]}吗？</b><br><span class="note">之后每周自动交替。</span>
+    <div class="act"><button class="btn small primary" data-thisweek="${X.R.organType}">对</button><button class="btn small" data-thisweek="${X.R.organType==='chicken'?'pork':'chicken'}">不，是${TYPE_N[X.R.organType==='chicken'?'pork':'chicken']}</button></div></div></section>` : '';
+  const open = k => { const s = st.find(x=>x.key===k); return s && (s.level==='now'||s.level==='soon') ? ' open' : ''; };
+  return anchorAsk + `
+  <section>
+    <h2>冰箱里还有什么</h2>
+    <div class="card"><ul class="status">${st.map(s=>`<li><span class="nm">${s.name}</span><span class="tx">${s.text}</span><span class="st ${icon[s.level]}">${lab[s.level]}</span></li>`).join('')}</ul></div>
+  </section>
+  ${list.length?`<section><h2>做下一批要准备</h2><div class="card"><ul class="shop">${list.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></section>`:''}
+  <section class="stack">
+    ${X.cfg.organMode==='fd' ? `<details class="fold"><summary>冻干内脏：每天给多少</summary>${fdCard(X)}</details>` : `<details class="fold"${open('organ')}><summary>${X.R.organType==='pork'?'猪肝块':'鸡内脏块'}：配方和做法</summary>${cards.organ}</details>`}
+    <details class="fold"${open('fish')}><summary>鱼块：配方和做法</summary>${cards.fish}</details>
+    <details class="fold"${open('veg')}><summary>${X.cfg.eggInVeg?'菜蛋泥':'菜泥'}：配方和做法</summary>${cards.veg}</details>
+    <details class="fold"${open('box')}><summary>药盒：每天装什么</summary>${boxWeek(X)}</details>
+    <details class="fold"><summary>健身零食：鸡胸脆片</summary><section class="card batch">
+      <ul class="recipe"><li><span>生鸡胸肉（去皮、去筋膜和肥油）</span><span><span class="num">300</span> g</span></li><li><span>清水</span><span><span class="num">30–50</span> ml</span></li></ul>
+      <ol class="steps">
+        <li>鸡胸切块，加水打成很细的泥，越细越容易烤脆。什么都不加：不放盐、油、调料，恢复期也能吃。</li>
+        <li>油纸铺在烤盘上，把肉泥用刮刀抹成 <b>1.5–2 mm</b> 的薄层。抹完用刀或披萨轮划出 1 cm 的格子，烤好后顺着格子一掰就开。</li>
+        <li>先 <b>150 ℃ 烤 15 分钟</b>，让鸡肉熟透；再降到 <b>100–110 ℃</b> 烤 60–90 分钟，烤箱门可以留一条缝散水汽。中途翻面一次，揭掉油纸再烤。</li>
+        <li>完全干透、一掰就"咔"地断开才算好。软的、能弯的地方容易发霉，要接着烤。</li>
+        <li>放凉后装密封罐。冷藏一周内吃完，或者分袋冷冻。</li>
+      </ol>
+      <p class="note" style="margin:8px 0 0">300 g 生鸡胸大约烤出 80 g 脆片，约 4.5 kcal/g。掰成小指甲盖大小（约 0.25 g），每片约 1 kcal。低热量靠的是片小，不是换食材。</p>
+    </section></details>
+  </section>`;
+}
+
+/* ───────────── 两只狗 ───────────── */
+function nutriSummary(D){
+  const rows = [...D.week.filter(r=>r.k!=='ca'&&r.k!=='ph').map(r=>Object.assign({p:'本周'},r)), ...D.month.map(r=>Object.assign({p:'本月'},r))];
+  const bad = rows.filter(r=>r.s==='low'||r.s==='high');
+  const thin = rows.filter(r=>r.s==='thin');
+  const ca = D.week.find(r=>r.k==='ca'), capBad = ca && (ca.cap<1||ca.cap>2);
+  if(!bad.length && !capBad) return {cls:'ok', text: thin.length?`都够，${thin.map(r=>C.NM[r.k]).join('、')}略低于目标`:'都够'};
+  return {cls:'bad', text: [...bad.map(r=>`${r.p}${C.NM[r.k]}${r.s==='high'?'接近上限':'不够'}（${r.ratio.toFixed(2)} 倍）`), capBad?`钙磷比 ${ca.cap.toFixed(2)}`:''].filter(Boolean).join('；')};
+}
+function viewDogs(X){
+  const {R, cfg, logs} = X, rec = ST.cfg.recovery && ST.cfg.recovery.on;
+  const dogBlock = k => {
+    const dog = ST.cfg.dogs[k], rer = 70*Math.pow(dog.wkg,0.75), D = R.dogs[k], ns = nutriSummary(D);
+    return `<article class="dog ${k}">
+      <header><span class="name">${esc(dog.name)}</span><span class="kc">RER ${Math.round(rer)} kcal</span></header>
+      <div style="padding:4px 14px 12px">
+        <div class="field"><label class="l" for="w_${k}">体重<small>kg，每周称一次</small></label><input id="w_${k}" type="number" inputmode="decimal" min="1" max="60" step="0.1" value="${dog.wkg}" data-dogf="wkg" data-who="${k}"></div>
+        <div class="field"><label class="l" for="k_${k}">每天热量<small>平时吃的，实际吸收。现在是 RER 的 ${(dog.kcal/rer).toFixed(2)} 倍</small></label><input id="k_${k}" type="number" inputmode="numeric" min="100" max="2000" step="5" value="${dog.kcal}" data-dogf="kcal" data-who="${k}"></div>
+        ${rec?`<div class="field"><label class="l" for="r_${k}">恢复期热量<small>恢复期先吃这么多</small></label><input id="r_${k}" type="number" inputmode="numeric" min="100" step="5" value="${ST.cfg.recovery.kcal[k]}" data-reck="${k}"></div>`:''}
+        <div class="field"><label class="l" for="m_${k}">一天几餐</label><input id="m_${k}" type="number" inputmode="numeric" min="1" max="4" step="1" value="${dog.meals}" data-dogf="meals" data-who="${k}"></div>
+        <details class="mini"><summary>营养：<span class="st ${rec?'info':ns.cls}">${rec?'恢复期不看':ns.cls==='ok'?'够':'有缺口'}</span> ${rec?'':esc(ns.text)}</summary>
+          <div style="margin-top:6px">${dayChecks(D.day, k)}</div>
+          <h2 style="margin:12px 0 4px">本周</h2>${D.week.filter(r=>r.k!=='ca'&&r.k!=='ph').map(meterRow).join('')}${capRow(D.week)}
+          <h2 style="margin:12px 0 4px">本月</h2>${D.month.map(meterRow).join('')}
+          <p class="note" style="margin:6px 0 0">竖线是目标。本周已记录 ${D.weekN.act} 天、本月 ${D.monthN.act} 天，其余按计划预测。</p>
+        </details>
+        <details class="mini"><summary>更多</summary>
+          <div class="field"><label class="l" for="fb_${k}">菜泥纤维上限<small>g/餐</small></label><input id="fb_${k}" type="number" inputmode="decimal" min="0" max="3" step="0.05" value="${dog.vegFiberMax}" data-dogf="vegFiberMax" data-who="${k}"></div>
+          <div class="field"><span class="l">鸡蛋<small>不吃的话，蛋的营养由肉补</small></span><span class="seg" role="group"><button type="button" data-dogflag="noEgg" data-who="${k}" data-val="0" aria-pressed="${!dog.noEgg}">吃</button><button type="button" data-dogflag="noEgg" data-who="${k}" data-val="1" aria-pressed="${!!dog.noEgg}">不吃</button></span></div>
+          <div class="field"><span class="l">鱼块<small>不吃的话，药盒里自动加维D</small></span><span class="seg" role="group"><button type="button" data-dogflag="noFish" data-who="${k}" data-val="0" aria-pressed="${!dog.noFish}">吃</button><button type="button" data-dogflag="noFish" data-who="${k}" data-val="1" aria-pressed="${!!dog.noFish}">不吃</button></span></div>
+          <div class="field"><label class="l" for="fo_${k}">鱼油<small>每天几粒</small></label><input id="fo_${k}" type="number" inputmode="numeric" min="0" max="3" step="1" value="${dog.foCapPerDay}" data-dogf="foCapPerDay" data-who="${k}"></div>
+          <div class="field"><label class="l" for="tp_${k}">健身日零食<small>占当天热量的 %，一般不超过 10%</small></label><input id="tp_${k}" type="number" inputmode="numeric" min="0" max="25" step="1" value="${Math.round(((ST.cfg.train&&ST.cfg.train.pct&&ST.cfg.train.pct[k]!=null)?ST.cfg.train.pct[k]:0.1)*100)}" data-trainpct="${k}"></div>
+        </details>
+      </div>
+    </article>`;
+  };
+  // 恢复期步骤
+  let recHtml = '';
+  if(rec){
+    const N = C.recoveryNext(ST.cfg, TODAY), lv = N.lv;
+    recHtml = `<ol class="recsteps">${C.recSteps(ST.cfg).map(s=>{
+      const n = lv[s.k]||0, cur = N.next && N.next.k===s.k;
+      const full = s.tiers ? n>=s.tiers.length : N.kcalDone;
+      const prog = s.tiers ? (s.tiers.length>1 ? s.tn.map((t,i)=>i<n?`<b>${t}</b>`:t).join(' → ') : (n?'已加':'')) : (n?`已加 ${n} 次`:'');
+      return `<li class="${full?'done':cur?'cur':''}"><span class="mk" aria-hidden="true">${full?'✓':cur?'→':n?'◐':'·'}</span><span><b>${s.n}</b><small>${s.how}</small></span><span class="when">${prog}</span></li>`;
+    }).join('')}</ol><p class="note" style="margin:6px 0 0">一档一档加，每档之间至少隔 2 天，便便连续 2–3 天成型再加。变软就停在这一档；水样便就退一档，不用从头来。</p>`;
+  }
+  const days = C.range(R.weekStart, C.addDays(R.weekStart,6)).filter(d=>d<=TODAY).map(d=>{
+    const b = logs[d]||{}, s = x => b[x]?(b[x].fromPlan?'✓':'✎'):'–';
+    return `<li><span><b>${wd(d)}</b> <span class="muted" style="font-size:12px">${md(d)}</span></span><span class="note">Doctor ${s('doctor')}　Missy ${s('missy')}</span>
+      <span>${!(b.doctor&&b.missy)?`<button class="btn small" data-follow="${d}">补记</button>`:''}<button class="btn small ghost" data-edit="doctor" data-date="${d}">改 D</button><button class="btn small ghost" data-edit="missy" data-date="${d}">改 M</button></span></li>`;
+  }).join('');
+  const type = R.organType;
+  return `
+  <section>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">状态</h2>
+        <span class="seg" role="group" style="margin-left:auto"><button type="button" data-status="normal" aria-pressed="${!rec}">正常</button><button type="button" data-status="recovery" aria-pressed="${!!rec}">拉稀恢复期</button></span>
+      </div>
+      <p class="note" style="margin:8px 0 0">${rec?`${md(ST.cfg.recovery.start)} 开始。两只狗吃一样的东西，恢复期一起走。`:'拉稀时切到恢复期：先只吃瘦肉、白米饭和钙粉，再一样一样加回来。'}</p>
+      ${recHtml}
+    </div>
+  </section>
+  <section><div class="dogs">${DOGS.map(dogBlock).join('')}</div></section>
+  <section>
+    <details class="fold"><summary>本周记录</summary><div class="card"><ul class="days">${days}</ul><p class="note" style="margin:6px 0 0">✓ 照计划　✎ 有改动</p></div></details>
+  </section>
+  <section>
+    <details class="fold"><summary>更多设置</summary><div class="card">
+      <div class="field"><span class="l">内脏<small>冻干：每天称克数；内脏块：自己做、冻冰格</small></span>
+        <span class="seg" role="group"><button type="button" data-organmode="fd" aria-pressed="${ST.cfg.organMode==='fd'}">冻干</button><button type="button" data-organmode="cubes" aria-pressed="${ST.cfg.organMode!=='fd'}">内脏块</button></span></div>
+      ${ST.cfg.organMode==='fd' ? '' : `<div class="field"><span class="l">这周是<small>内脏块每周交替</small></span>
+        <span class="seg" role="group">${['chicken','pork'].map(t=>`<button type="button" data-thisweek="${t}" aria-pressed="${t===type}">${TYPE_N[t]}</button>`).join('')}</span></div>`}
+      <div class="field"><label class="l" for="f_fd">${ST.cfg.organMode==='fd'?'冻干肝':'补铜用的冻干内脏'}</label><select id="f_fd" data-cfg2="organ.fd">${FDS.map(n=>`<option value="${esc(n)}"${n===ST.cfg.organ.fd?' selected':''}>${esc(n)}</option>`).join('')}</select></div>
+      <div class="field"><label class="l" for="f_fish">鱼<small>按维生素D定量</small></label><select id="f_fish" data-cfg="fish">${FISHES.map(n=>`<option value="${esc(n)}"${n===ST.cfg.fish?' selected':''}>${esc(short(n))}</option>`).join('')}</select></div>
+      <div class="field"><span class="l">鸡蛋</span><span class="seg" role="group"><button type="button" data-egginveg="1" aria-pressed="${!!ST.cfg.eggInVeg}">打进菜泥</button><button type="button" data-egginveg="0" aria-pressed="${!ST.cfg.eggInVeg}">单独喂</button></span></div>
+      ${(ST.cfg.eggInVeg && ST.cfg.vegScale!=null && ST.cfg.vegScale<1) ? `<p class="note" style="margin:0 0 8px">菜还在适应期，鸡蛋先单独给；菜加到全量后自动打进菜泥。</p>` : ''}
+      <div class="field"><label class="l" for="f_p">蛋白质占热量<small>%</small></label><input id="f_p" type="number" inputmode="numeric" min="25" max="60" step="1" value="${ST.cfg.pctP}" data-cfg="pctP"></div>
+      <p class="note" style="margin:8px 0 0">补充剂：NOW 碳酸钙粉 417 mg 钙/g；碘片 225 μg 碘 + 99 mg 钾；吡啶甲酸锌 50 mg/片（周一、周四）；维E 145 IU/粒（周三）。热量按 NRC 2006 公式算。数据只存在这台手机上（${esc(SYNCMSG)}）。</p>
+      <div class="field"><span class="l">备份<small>导出后选「存储到文件」，换手机或误删时用「恢复」</small></span>
+        <span style="display:flex;gap:8px"><button type="button" class="btn small" data-export="1">导出</button><label class="btn small ghost">恢复<input type="file" accept=".json,application/json" data-import="1" hidden></label></span></div>
+    </div></details>
+  </section>`;
+}
+
+function dogCard(X, k, date){
+  const {R, cfg, logs} = X;
+  const P = planFor(cfg, date), day = P.dogs[k].days[date], box = P.dogs[k].box[date];
+  const sp = splitDay(day.g), spD = splitDay(P.dogs.doctor.days[date].g);
+  const dog = cfg.dogs[k], meals = dog.meals;
+  const orgG = sum(sp.organ), orgD = sum(spD.organ);
+  const vegG = sum(sp.veg);
+  const per = g => meals>1 ? `<span class="per">全天 ${g1(g)}</span>` : '';
+  const pm = g => g/meals;
+  // 块：能平均分到每餐就写每餐几块，不能就整块放进其中一餐
+  const cubeAmt = n => `<span class="num">${n}</span><span class="unit">块</span><span class="per">晚餐</span>`;
+  // 冻块：已做好的那批按“这只狗那一份、吃几天”给；填了格数就直接说几块
+  const blockRow = (label, kind, type, g) => {
+    const ab = activeBatch(kind, type, date);
+    const sc = kind==='organ' ? cfg.organScale : cfg.fishScale, half = sc!=null && sc<1;
+    if(!ab) return `<li><span class="what">${label}<span class="how">还没做，先按生重${half?' · 恢复期半量':''} · 晚餐一次给</span></span><span class="amt">${amt(g)}<span class="per">晚餐</span></span></li>`;
+    const b = ab.b, n = cubesOn(b, k, date), who = DOGN[k];
+    if(n===0) return `<li><span class="what">${label}<span class="how">${who} 那份格数比天数少，今天不给</span></span><span class="amt"><span class="num muted">0</span><span class="unit">块</span></span></li>`;
+    if(n!=null) return half
+      ? `<li><span class="what">${label}<span class="how">恢复期半量：平时 ${n} 块，今天给一半</span></span><span class="amt">${cubeAmt(n*sc)}</span></li>`
+      : `<li><span class="what">${label}<span class="how">${who} 那份 · 一份吃 ${b.days} 天</span></span><span class="amt">${cubeAmt(n)}</span></li>`;
+    return `<li><span class="what">${label}<span class="how">${who} 那份共 ${b.days} 天，今天取${half?'半天':' 1 天'}的量</span></span><span class="amt"><span class="num">${half?'½ × ':''}1/${b.days}</span><span class="unit">份</span><span class="per">晚餐</span></span></li>`;
+  };
+  const vab = activeBatch('veg', null, date);
+  const rows = [
+    `<li><span class="what">${esc(short(sp.meat))}<span class="how">蒸熟后称</span></span><span class="amt">${amt(pm(sp.meatG))}${per(sp.meatG)}</span></li>`,
+    sp.carbs.map(([n,g])=>{ const ck = (F[n].basis==='dry' && date===TODAY) ? cookedFor(n, g) : null;
+      return ck!=null
+        ? `<li><span class="what">${esc(short(n))}<span class="how">熟重（按今天称的总重算）· 干重 ${g1(g)} g</span></span><span class="amt">${amt(pm(ck))}${per(ck)}</span></li>`
+        : `<li><span class="what">${esc(short(n))}<span class="how">${F[n].basis==='dry'?'下锅前的干重 · 煮好称总重可换成熟重':'蒸熟后称'}</span></span><span class="amt">${amt(pm(g))}${per(g)}</span></li>`; }).join(''),
+    cfg.organMode==='fd'
+      ? Object.entries(sp.organ).filter(([,g])=>g>0.05).map(([n,g])=>`<li><span class="what">${esc(n.replace('块',''))}<span class="how">${F[n].cat==='blood_fd'?'补铁':'补铜、维A、B12'} · 晚餐一次给全天的量，剪碎拌饭${cfg.organScale<1&&F[n].cat!=='blood_fd'?' · 恢复期半量':''}${cfg.bloodScale<1&&F[n].cat==='blood_fd'?' · 恢复期半量':''}</span></span><span class="amt">${amt(g)}<span class="per">全天 · 晚餐</span></span></li>`).join('')
+      : orgG>0 ? blockRow(P.organType==='pork'?'猪肝块':'鸡内脏块', 'organ', P.organType, orgG) : '',
+    sp.fishG>0 ? blockRow(esc(short(sp.fish||cfg.fish))+'块', 'fish', null, sp.fishG) : '',
+    (cfg.eggInVeg && (vegG+sp.egg)>0)
+      ? `<li><span class="what">${vegG>0.05?'菜蛋泥':'鸡蛋泥'}<span class="how">${vegG>0.05?Object.keys(sp.veg).map(short).join('、')+' + 鸡蛋':'这几天不用放菜'} · 喂的时候称${cfg.vegScale<1?` · 菜适应期 ${Math.round(cfg.vegScale*100)}%`:''}</span></span><span class="amt">${amt(pm(vegG+sp.egg))}${per(vegG+sp.egg)}</span></li>`
+      : vegG>0 ? `<li><span class="what">菜泥<span class="how">${Object.keys(sp.veg).map(short).join('、')} · 喂的时候称${cfg.vegScale<1?` · 适应期 ${Math.round(cfg.vegScale*100)}%`:''}</span></span><span class="amt">${amt(pm(vegG))}${per(vegG)}</span></li>`:'',
+    (sp.eggParts && (sp.eggParts[C.EGG_WHITE]||sp.eggParts[C.EGG_YOLK])) ? (()=>{ const fr = x => { const q=Math.round(x*4)/4; return q===0.25?'¼':q===0.5?'½':q===0.75?'¾':String(q); };
+        const w = (sp.eggParts[C.EGG_WHITE]||0)/32, y = (sp.eggParts[C.EGG_YOLK]||0)/18;
+        return `<li><span class="what">白煮蛋<span class="how">${y>0?'蛋白加一部分蛋黄':'只给蛋白，蛋黄先不给'} · 全天的量，分到各餐</span></span><span class="amt"><span class="num">蛋白 ${fr(w)}${y>0?` + 蛋黄 ${fr(y)}`:''}</span><span class="unit">个</span></span></li>`; })() :
+    cfg.eggInVeg ? '' : sp.egg ? `<li><span class="what">白煮蛋<span class="how">去壳，不加盐${cfg.eggHeld?' · 菜加到全量后再打进菜泥':''}</span></span><span class="amt"><span class="num">${eggText(pm(sp.egg))}</span>${meals>1?`<span class="per">全天 ${eggText(sp.egg)}</span>`:''}</span></li>` : ((cfg.inRecovery || cfg.dogs[k].noEgg) ? '' : `<li><span class="what muted">今天不给蛋</span><span></span></li>`),
+    box.foCap ? `<li><span class="what">鱼油<span class="how">随餐整粒</span></span><span class="amt"><span class="num">${box.foCap}</span><span class="unit">粒</span><span class="per">放进其中一餐</span></span></li>`:'',
+  ].join('');
+  const L = logs[date] && logs[date][k];
+  const trK = C.treatKcal(cfg, k, date);
+  return `<article class="dog ${k}">
+    <header><span class="name">${esc(dog.name)}</span><span class="kc">每餐的量 · 正餐全天 <span class="num">${Math.round(dog.kcal-trK)}</span> kcal</span></header>
+    <ul class="rows">${rows}</ul>
+    ${trK>0?`<div class="treat"><b>健身零食：最多 <span class="num">${Math.round(trK)}</span> kcal</b><br>约 <b class="num">${g1(trK/C.TREAT_KCAL_PER_G)}</b> g 鸡胸脆片，掰成小指甲盖大小约 ${Math.round(trK/C.TREAT_KCAL_PER_G/0.25)} 片（每片约 0.25 g、1 kcal）。没用完的不用补进正餐。</div>`:''}
+    <div class="box"><div class="t">${(cfg.inRecovery && cfg.suppOff)?`恢复期：只给钙粉，<b>一天一共</b> ${box.caG.toFixed(2)} g，拌进其中一餐，或两餐各一半。药盒里的锌片、碘片、维E先挑出来留着`:`药盒：打开「${wd(date)}」那格，<b>一天一格</b>，倒进其中一餐`}</div><div class="items">${boxItems(box)||'<span class="muted">这格是空的</span>'}</div></div>
+    <footer>${L?`<span class="st ${L.fromPlan?'ok':'info'}">${L.fromPlan?'已按计划记录':'已记录（有改动）'}</span>`:''}
+      <button class="btn small ghost" data-edit="${k}" data-date="${date}" style="margin-left:auto">${L?'修改':'有变动'}</button></footer>
+  </article>`;
+}
+
+function stockHtml(kind, type, unit){
+  const ab = activeBatch(kind, type);
+  if(!ab) return `<div class="stock"><span class="muted">冰箱里没有能用的</span></div>`;
+  const b = ab.b, left = ab.left, perDay = b.perDay;
+  const days = Math.floor(left/perDay+1e-6);
+  const cellsBtn = (kind!=='veg' && b.days && !(b.cells && b.cells.doctor>0 && b.cells.missy>0)) ? `<button class="btn small" data-cells="${b.id}">填格数</button>` : '';
+  const cellsTxt = (b.cells && b.cells.doctor>0) ? ` · Doctor ${b.cells.doctor} 格、Missy ${b.cells.missy} 格` : '';
+  return `<div class="stock"><span>${md(b.made)}做的 · 还能吃 <span class="num">${days}</span> 天${cellsTxt}</span>
+    <span style="display:flex;gap:6px">${cellsBtn}<button class="btn small ghost" data-delbatch="${b.id}">删除</button></span>
+    <span class="gauge" aria-hidden="true"><i style="width:${Math.min(100,left/b.total*100)}%"></i></span></div>`;
+}
+function boxWeek(X){
+  const next = UI.boxWeek==='next';
+  const ws = next ? C.addDays(X.R.weekStart,7) : X.R.weekStart;
+  const P = next ? C.planWeek(F, X.cfg, ws) : X.R.plan;
+  const days = C.range(ws, C.addDays(ws,6));
+  const cell = b => {
+    const t=[];
+    if(b.caG) t.push(`钙粉 <span class="num">${b.caG.toFixed(2)}</span> g`);
+    if(b.iTab) t.push(`碘 <span class="num">${b.iTab}</span> 片`);
+    if(b.znTab) t.push(`<b>锌 <span class="num">${b.znTab}</span> 片</b>`);
+    if(b.veCap) t.push(`<b>维E <span class="num">${b.veCap}</span> 粒</b>`);
+    if(b.vdCap) t.push(`<b>维D <span class="num">${b.vdCap}</span> 粒</b>`);
+    return t.length ? t.join('<br>') : '<span class="muted">空</span>';
+  };
+  const tot = k => { const a={ca:0,i:0,zn:0,ve:0,vd:0}; days.forEach(d=>{const b=P.dogs[k].box[d];a.ca+=b.caG;a.i+=b.iTab;a.zn+=b.znTab;a.ve+=b.veCap;a.vd+=(b.vdCap||0);}); return a; };
+  const tD = tot('doctor'), tM = tot('missy');
+  const totTxt = t => `钙粉 ${t.ca.toFixed(2)} g · 碘 ${t.i} 片 · 锌 ${t.zn} 片 · 维E ${t.ve} 粒${t.vd?` · 维D ${t.vd} 粒`:''}`;
+  const anyVd = tD.vd+tM.vd>0;
+  return `<section class="card">
+    <div class="head" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <h3 style="margin:0;font-size:16px">药盒 · 一周装一次</h3>
+      <span class="seg" role="group" style="margin-left:auto">
+        <button type="button" data-boxweek="this" aria-pressed="${!next}">本周</button>
+        <button type="button" data-boxweek="next" aria-pressed="${next}">下周</button></span>
+    </div>
+    <p class="note" style="margin:0 0 8px">${md(ws)}（周六）到 ${md(C.addDays(ws,6))}。每格倒进那天的其中一餐。鱼油不放药盒，Doctor 每天随餐 1 粒。${anyVd?'维D 是星鲨 400 单位软胶囊，整粒放进饭里；只给不吃鱼的狗，每周最多这么多，不要多给。':''}</p>
+    <div style="overflow-x:auto"><table class="pbox">
+      <thead><tr><th></th><th class="d">Doctor</th><th class="m">Missy</th></tr></thead>
+      <tbody>${days.map(d=>`<tr${d===TODAY?' class="now"':''}><th>${wd(d)}<small>${md(d)}</small></th><td>${cell(P.dogs.doctor.box[d])}</td><td>${cell(P.dogs.missy.box[d])}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="note" style="margin-top:8px"><b>Doctor 一周</b>：${totTxt(tD)}<br><b>Missy 一周</b>：${totTxt(tM)}</div>
+    ${next?'<p class="note" style="margin:6px 0 0">下周的量按现在的设置算。装完之后如果换了肉或改了热量，今天页会提示哪格要调。</p>':''}
+  </section>`;
+}
+function batchCards(X){
+  const {R, sheet, cfg} = X, type = R.organType, O = sheet.organ, Fi = sheet.fish, V = sheet.veg;
+  const nextType = C.organTypeOfWeek(ST.cfg, C.addDays(R.weekStart,7));
+  const hadFd = ST.batches.some(b=>b.kind==='organ' && b.fdG>0);
+  const fdRec = O.fd ? O.fd.g : 0;
+  const organRows = Object.entries(O.recipe).map(([n,g])=>`<li><span>${esc(short(n))}</span><span>${type==='pork'?`用 <span class="num">${Math.round(O.use)}</span> g（一盒 ${g} g，剩 ${Math.round(O.discard)} g 扔掉）`:`<span class="num">${g}</span> g`}</span></li>`).join('')
+    + (O.fd ? `<li><span>${esc(O.fd.name)}<small class="muted"> · 补铜</small></span><span><span class="num">${hadFd?fdRec:Math.round(fdRec/2)}</span> g${hadFd?'':`<small class="muted">（第一批减半，之后 ${fdRec} g）</small>`}</span></li>`:'');
+  const eggDay = DOGS.reduce((s,k)=>s+(R.plan.dogs[k].days[TODAY].g['水煮蛋(全蛋)']||0),0);
+  const eggN = cfg.eggInVeg ? Math.max(1, Math.round(eggDay*V.batchDays/50)) : 0;
+  const vegRows = Object.entries(V.mix).map(([n,g])=>`<li><span>${esc(short(n))}</span><span><span class="num">${Math.round(g)}</span> g</span></li>`).join('')
+    + (eggN ? `<li><span>鸡蛋<small class="muted"> · 白煮后剥壳</small></span><span><span class="num">${eggN}</span> 个</span></li>` : '');
+  const pD = R.plan.dogs.doctor.days[TODAY].g, pM = R.plan.dogs.missy.days[TODAY].g;
+  const pureeDay = g => sum(Object.fromEntries(Object.entries(g).filter(([n])=>F[n]&&(F[n].cat==='veg'||(cfg.eggInVeg&&F[n].cat==='egg')))));
+  const vegTotal = sum(V.mix);
+  const NV = nextVeg(), vp = C.vegPer100(F, NV), vscale = cfg.vegScale==null?1:cfg.vegScale;
+  const vAuto = ST.cfg.vegAuto!==false, vSteady = vegSteady();
+  const vName = m => Object.keys(m).map(n=>short(n)+(m[n]<1?'(少)':'')).join('、');
+  const vegPaused = cfg.inRecovery && !((cfg.recLv||{}).veg>0);
+  const later = (vAuto && !vSteady) ? vegQueue(4).slice(1) : [];
+  const VW = {'菠菜(生)':'菠菜要先在外面焯水、弃掉焯水的水，镁只按一半算。','秋葵(生)':'秋葵纤维高。','羽衣甘蓝(生)':'羽衣甘蓝纤维高，大量长期吃可能影响甲状腺。','西兰花(生)':'西兰花纤维偏高，可能刺激肠胃。','胡萝卜(生)':'胡萝卜纤维偏高。','冬瓜(生)':'冬瓜纤维高、镁少。','芹菜(生)':'芹菜少量就好。'};
+  const vegWarn = Object.keys(NV).filter(n=>VW[n]).map(n=>VW[n]).join('');
+  const sh = shareOf(cfg), dPct = Math.round(sh.doctor*100), dFrac = fracTxt(sh.doctor);
+  const splitStep = (days, extra, sh2) => { const S = sh2||sh, only = S.doctor>=0.999 ? 'Doctor' : S.missy>=0.999 ? 'Missy' : null;
+      const p = Math.round(S.doctor*100), fr = fracTxt(S.doctor);
+      return `<li>蒸熟后连汁打碎，<b>称一下总重</b>。</li>
+      ${only ? `<li>这批<b>只给 ${only}</b>，${only==='Doctor'?'Missy':'Doctor'} 不吃，不用分。</li>` : `<li>分成两份：<b>Doctor 份 = 总重 × ${p}%</b>${fr?`（${fr}）`:''}，剩下的是 Missy 份。比如总重 300 g，Doctor 份就是 ${Math.round(300*S.doctor)} g。</li>`}
+      <li>${only?'装进冰格':'两份各自装进冰格'}，装满刮平，格数不用管。分开冻，袋子上写名字。</li>
+      <li><b>每份吃 ${days} 天</b>${extra||''}。记下这批时填上各装了几格，「今天」页会告诉你每天给几块。</li>`; };
+  return {
+    organ: `<section class="card batch">
+    <div class="head"><h3>${type==='pork'?'猪肝块':'鸡内脏块'}</h3><span class="pill ${type}">本周${TYPE_N[type]}</span><span class="note">下周${TYPE_N[nextType]}</span></div>
+    ${stockHtml('organ', type, '块')}
+    <ul class="recipe">${organRows}</ul>
+    <ol class="steps">
+      ${type==='chicken'?`<li>一套 400 g 一次做完，够两个鸡内脏周（中间隔一个猪肝周）。</li>`:`<li>只做这一周的量，剩下的生猪肝扔掉。</li>`}
+      ${O.fd?`<li>冻干牛肝先剪碎，和生内脏一起蒸。</li>`:''}
+      ${splitStep(O.days, type==='chicken'?'（只在鸡内脏周吃，这周吃 7 天，隔一个猪肝周再吃 7 天）':'')}
+    </ol>
+    <div style="margin-top:12px"><button class="btn primary" data-make="organ">做好了，记下这批</button></div>
+  </section>`,
+    fish: `<section class="card batch">
+    <div class="head"><h3>鱼块</h3><span class="note">${esc(short(Fi.name))} · 每周一次</span></div>
+    ${stockHtml('fish', null, '块')}
+    ${Fi.raw<1 ? `<p class="note">两只狗现在都不吃鱼块，不用做。维D 已经排进药盒。</p>` : `<ul class="recipe"><li><span>${esc(short(Fi.name))}（生重，去头去内脏）</span><span><span class="num">${Math.round(Fi.raw)}</span> g</span></li></ul>
+    <ol class="steps">
+      <li>挑掉大刺。鱼油容易氧化，做一周的量就好，买来多的鱼自己吃。</li>
+      ${splitStep(7, '', Fi.share)}
+    </ol>
+    <div style="margin-top:12px"><button class="btn primary" data-make="fish">做好了，记下这批</button></div>`}
+  </section>`,
+    veg: `<section class="card batch">
+    <div class="head"><h3>${cfg.eggInVeg?'菜蛋泥':'菜泥'}</h3><span class="note">辅食机 · ${V.batchDays} 天一批，冷藏 · ${vAuto?'按建议轮换':'自选'}</span></div>
+    ${stockHtml('veg', null, 'g')}
+    <div class="field" style="grid-template-columns:1fr;border:0"><span class="l">下一批用这些菜<small>${vAuto
+        ? (vSteady ? '恢复期和菜的适应期先只用西葫芦，不换菜。回到正常、菜加到全量后开始轮换。' : '一批一种菜为主，5 批（10 天）一轮；南瓜、黄瓜单独做量太大，搭一点菠菜（标“少”的）。想换就点下面的菜，变成自选。')
+        : '自选：点一下选上或去掉，按等重配。'}做好后克数不一样，在「记下这批」里改成实际的</small></span>
+      <div class="chips">${VEGS.map(n=>`<button type="button" class="chip" data-veg="${esc(n)}" aria-pressed="${NV[n]>0}">${esc(short(n))}</button>`).join('')}</div>
+      ${vAuto ? '' : `<div><button type="button" class="btn small" data-vegauto="1">回到建议轮换</button></div>`}
+      ${later.length ? `<span class="note">之后几批：${later.map((m,i)=>`<b>第 ${i+2} 批</b> ${esc(vName(m))}`).join('；')}。可以提前一起买。</span>` : ''}
+      <span class="note">这几种菜平均每 100 g：镁 <span class="num">${vp.mg.toFixed(0)}</span> mg，纤维 <span class="num">${vp.fiber.toFixed(1)}</span> g。镁越多、纤维越少，需要的菜越少。${vegWarn}</span></div>
+    ${cfg.inRecovery ? (vegPaused?'':`<p class="note">恢复期菜量跟着步骤走，现在是 ${Math.round(vscale*100)}%。</p>`) : `<div class="field" style="border:0;padding-top:0"><span class="l">适应期<small>先给计划量的一部分，便便正常再加</small></span>
+      <span class="seg" role="group">${[0.25,0.5,0.75,1].map(v=>`<button type="button" data-vegscale="${v}" aria-pressed="${Math.abs(vscale-v)<1e-9}">${v===1?'全量':Math.round(v*100)+'%'}</button>`).join('')}</span></div>`}
+    ${(cfg.eggHeld && !vegPaused) ? `<p class="note">菜还在适应期，鸡蛋先单独白煮给，不打进菜泥。菜加到全量后，从下一批开始再和菜一起打。适应期菜很少（两天几十克），辅食机打不动的话，蒸软后用叉子压成泥就行。</p>` : ''}
+    ${vegPaused ? `<div class="alert info" style="margin:8px 0"><div><b>恢复期，菜泥先暂停</b><br><span class="note">在「两只狗」里加回「菜泥」这一步那天再做。会先只用西葫芦，从 25% 的量开始，这里会给出克数。</span></div></div>`
+    : vegTotal<1 ? `<div class="alert info" style="margin:8px 0"><div><b>这几天不用放菜</b><br><span class="note">现在的肉和碳水（${esc(short(cfg.meat))}、${esc(short(cfg.carb))}${cfg.carb2?'、'+esc(short(cfg.carb2)):''}）镁已经够了，菜泥是用来补镁的，所以算出来是 0。${eggN?'这批只把鸡蛋打成泥就行。':''}换成镁少的肉或碳水后，这里会自动给出菜量。</span></div></div>` : ''}
+    ${vegPaused ? '' : `<ul class="recipe">${vegTotal<1 ? vegRows.replace(/<li><span>[^<]*<\/span><span><span class="num">0<\/span> g<\/span><\/li>/g,'') : vegRows}${vegTotal<1?'':`<li><span class="muted">菜合计</span><span><span class="num">${Math.round(vegTotal)}</span> g</span></li>`}</ul>
+    ${V.over ? `<p class="note">菜超过辅食机的 300 g，分两次蒸，再一起打。</p>` : ''}
+    <ol class="steps">
+      <li>${vegTotal<1?`白煮蛋剥壳，放进辅食机打成泥。`:`洗净切块${NV['菠菜(生)']?'（菠菜先另外焯水，水倒掉）':''}${NV['南瓜(生)']?'，南瓜去皮去籽':''}，放进辅食机蒸熟${eggN?`，加剥壳的白煮蛋一起`:'后'}打成泥，冷凝水留在里面。`}</li>
+      <li>放一个盒子冷藏，${V.batchDays} 天吃完。喂的时候按「今天」页的克数称：现在每天 Doctor <span class="num">${g1(pureeDay(pD))}</span> g、Missy <span class="num">${g1(pureeDay(pM))}</span> g，分到每餐。${cfg.vegScale<1?`菜现在是适应期（${Math.round(cfg.vegScale*100)}%），便便正常再加量。`:''}</li>
+    </ol>
+    <div style="margin-top:12px"><button class="btn primary" data-make="veg">做好了，记下这批</button></div>`}
+  </section>`};
+}
+const ST_N = {ok:'够', thin:'偏少', low:'不够', high:'接近上限', warn:'注意', info:''};
+function meterRow(r){
+  const nm = C.NM[r.k]||r.k, scale = 2;
+  const w = Math.min(1, r.ratio/scale)*100, t = Math.min(1,(r.target||1)/scale)*100;
+  const extra = r.ofMax!=null ? `上限的 ${Math.round(r.ofMax*100)}%` : (r.target&&r.target!==1?`目标 ${r.target} 倍`:'');
+  return `<div class="meter"><span class="nm">${esc(nm)}</span>
+    <span class="bar" role="img" aria-label="${esc(nm)} ${r.ratio.toFixed(2)} 倍"><span class="fill ${r.s}" style="width:${w}%"></span><span class="tick" style="left:calc(${t}% - 1px)"></span></span>
+    <span class="v"><span class="num">${r.ratio.toFixed(2)}</span><span class="unit">倍</span><small>${extra||ST_N[r.s]}</small></span></div>`;
+}
+function capRow(rows){
+  const ca = rows.find(r=>r.k==='ca'); if(!ca) return '';
+  const s = ca.cap<1||ca.cap>2?'warn':'ok';
+  return `<div class="meter"><span class="nm">钙磷比</span><span class="note">AAFCO 要求 1.0–2.0，目标 1.3</span>
+    <span class="v"><span class="num">${ca.cap.toFixed(2)}</span><small><span class="st ${s}">${s==='ok'?'正常':'超出范围'}</span></small></span></div>`;
+}
+function dayChecks(rows, dog){
+  const lab = {kcal:'热量', p:'蛋白质', f:'脂肪', cap:'钙磷比', fiber:'纤维', cu:'铜'};
+  return rows.map(r=>{
+    let v;
+    if(r.k==='kcal') v = `${Math.round(r.v)} kcal`;
+    else if(r.k==='p'||r.k==='f') v = `${r.v.toFixed(1)}%`;
+    else if(r.k==='cap') v = r.v.toFixed(2);
+    else if(r.k==='fiber') v = `${r.v.toFixed(2)} g/餐`;
+    else if(r.k==='cu') v = `${r.v.toFixed(2)} / ${r.limit.toFixed(2)} mg`;
+    return `<div class="field"><span class="l">${lab[r.k]}${r.k==='cu'?'<small>Missy 的个体关注线</small>':''}${r.k==='f'?'<small>12–30% 之间</small>':''}</span><span><span class="num">${v}</span> ${r.s!=='info'?`<span class="st ${r.s==='warn'?'warn':'ok'}">${r.s==='warn'?'注意':'正常'}</span>`:''}</span></div>`;
+  }).join('');
+}
+
+/* ───────────── 记录编辑 ───────────── */
+// 这只狗“一天的量”由哪些食材、各多少克组成：有批次按批次，没有按计划
+function dayUnit(kind, P, date, dog){
+  const ab = activeBatch(kind, kind==='organ'?P.organType:null, date);
+  if(ab && ab.b.days && ab.b.share) return batchDayMap(ab.b, dog);
+  const sp = splitDay(P.dogs[dog].days[date].g);
+  return kind==='organ' ? sp.organ : (sp.fish?{[sp.fish]:sp.fishG}:{});
+}
+function openEdit(dog, date){
+  const X = LAST, cfg = X.cfg, P = planFor(cfg, date);
+  const L = (X.logs[date]&&X.logs[date][dog]) || null;
+  const base = L ? L.g : P.dogs[dog].days[date].g;
+  const s = L ? L.s : P.dogs[dog].box[date];
+  const sp = splitDay(base);
+  const oc = dayUnit('organ', P, date, dog), fc = dayUnit('fish', P, date, dog);
+  const ocG = sum(oc)||1, fcG = sum(fc)||1;
+  const orgN = Math.round(sum(sp.organ)/ocG*10)/10, fishN = Math.round(sp.fishG/fcG*10)/10;
+  const sel = (id, list, v) => `<select id="${id}">${list.map(n=>`<option value="${esc(n)}"${n===v?' selected':''}>${esc(short(n))}</option>`).join('')}</select>`;
+  const num = (id, v, step) => `<input id="${id}" type="number" inputmode="decimal" min="0" step="${step||1}" value="${Math.round(v*100)/100}">`;
+  $('#sheetHost').innerHTML = `<div class="scrim" data-close="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="修改记录">
+    <h3>${esc(cfg.dogs[dog].name)} · ${md(date)} ${wd(date)}</h3>
+    <p class="note" style="margin:0 0 6px">填这一天<b>全天</b>实际吃的量（几餐加起来）。没吃的填 0。</p>
+    <div class="field"><span class="l">${sel('e_meat', PROTEINS, sp.meat||cfg.meat)}<small>熟重 g</small></span>${num('e_meatG', sp.meatG)}</div>
+    <div class="field"><span class="l">${sel('e_carb', CARBS, (sp.carbs[0]||[cfg.carb])[0])}<small>干重或熟重 g，和今天页一致</small></span>${num('e_carbG', (sp.carbs[0]||[0,0])[1])}</div>
+    <div class="field"><span class="l"><select id="e_carb2"><option value="">（没有第二种碳水）</option>${CARBS.map(n=>`<option value="${esc(n)}"${sp.carbs[1]&&n===sp.carbs[1][0]?' selected':''}>${esc(short(n))}</option>`).join('')}</select><small>g</small></span>${num('e_carb2G', (sp.carbs[1]||[0,0])[1])}</div>
+    <div class="field"><label class="l" for="e_org">内脏<small>吃了几天的量，平常是 1，没吃填 0</small></label>${num('e_org', orgN, 0.5)}</div>
+    <div class="field"><label class="l" for="e_fish">鱼<small>吃了几天的量，平常是 1，没吃填 0</small></label>${num('e_fish', fishN, 0.5)}</div>
+    ${cfg.eggInVeg
+      ? `<div class="field"><label class="l" for="e_veg">菜蛋泥<small>g，全天</small></label>${num('e_veg', sum(sp.veg)+sp.egg)}</div>`
+      : `<div class="field"><label class="l" for="e_veg">菜泥<small>g</small></label>${num('e_veg', sum(sp.veg))}</div>
+    <div class="field"><label class="l" for="e_egg">白煮蛋<small>g，一个约 50 g</small></label>${num('e_egg', sp.egg)}</div>`}
+    <div class="field"><label class="l" for="e_ca">钙粉<small>g</small></label>${num('e_ca', s.caG||0, 0.05)}</div>
+    <div class="field"><label class="l" for="e_i">碘片<small>片</small></label>${num('e_i', s.iTab||0)}</div>
+    <div class="field"><label class="l" for="e_zn">锌片<small>片</small></label>${num('e_zn', s.znTab||0)}</div>
+    <div class="field"><label class="l" for="e_ve">维E<small>粒</small></label>${num('e_ve', s.veCap||0)}</div>
+    <div class="field"><label class="l" for="e_vd">维D<small>粒</small></label>${num('e_vd', s.vdCap||0)}</div>
+    <div class="field"><label class="l" for="e_fo">鱼油<small>粒</small></label>${num('e_fo', s.foCap||0)}</div>
+    <div class="bar">
+      <button class="btn primary" data-saveedit="${dog}" data-date="${date}" style="flex:1">保存</button>
+      ${L?`<button class="btn" data-clearlog="${dog}" data-date="${date}">删除这条</button>`:''}
+      <button class="btn ghost" data-close="1">取消</button>
+    </div>
+  </div></div>`;
+  const spP = splitDay(P.dogs[dog].days[date].g);   // 计划里菜和蛋的比例，用来拆分菜蛋泥
+  EDIT = {dog, date, oc, fc, vegMix: Object.keys(sp.veg).length ? sp.veg : spP.veg,
+          eggShare: cfg.eggInVeg ? (spP.egg/((sum(spP.veg)+spP.egg)||1)) : null};
+  $('#e_meatG').focus({preventScroll:true});
+}
+let EDIT = null;
+function saveEdit(){
+  const v = id => Math.max(0, parseFloat($('#'+id).value)||0);
+  const {dog, date, oc, fc} = EDIT;
+  const g = {};
+  const add = (n,x) => { if(n && x>0) g[n]=(g[n]||0)+x; };
+  add($('#e_meat').value, v('e_meatG'));
+  add($('#e_carb').value, v('e_carbG'));
+  add($('#e_carb2').value, v('e_carb2G'));
+  for(const n in oc) add(n, oc[n]*v('e_org'));
+  for(const n in fc) add(n, fc[n]*v('e_fish'));
+  const vm = EDIT.vegMix || ST.cfg.veg, vt = sum(vm)||1;
+  if(EDIT.eggShare!=null){
+    const tot = v('e_veg');
+    for(const n in vm) add(n, tot*(1-EDIT.eggShare)*vm[n]/vt);
+    add(ST.cfg.egg.name, tot*EDIT.eggShare);
+  } else {
+    for(const n in vm) add(n, v('e_veg')*vm[n]/vt);
+    add(ST.cfg.egg.name, v('e_egg'));
+  }
+  const s = {caG:v('e_ca'), iTab:v('e_i'), znTab:v('e_zn'), veCap:v('e_ve'), vdCap:v('e_vd'), foCap:v('e_fo')};
+  setLog(date, dog, {g, s, fromPlan:false, at:new Date().toISOString()});
+  closeSheet(); render(); toast(`${DOGN[dog]} ${md(date)} 已保存`);
+}
+function closeSheet(){ $('#sheetHost').innerHTML=''; EDIT=null; }
+
+/* ───────────── 做好了一批 ───────────── */
+const cellFields = () => `<p class="note" style="margin:10px 0 0">装好冰格后填格数（可以先空着，之后在库存那行点「填格数」）：</p>
+  <div class="field"><label class="l" for="m_cd">Doctor 份装了几格</label><input id="m_cd" type="number" inputmode="numeric" min="0" placeholder="—"></div>
+  <div class="field"><label class="l" for="m_cm">Missy 份装了几格</label><input id="m_cm" type="number" inputmode="numeric" min="0" placeholder="—"></div>`;
+function openCells(id){
+  const b = ST.batches.find(x=>x.id===id); if(!b) return;
+  $('#sheetHost').innerHTML = `<div class="scrim" data-close="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="填格数">
+    <h3>${md(b.made)} 那批装了几格</h3><p class="note" style="margin:0 0 6px">每份吃 ${b.days} 天。填了以后「今天」页会按格数排好每天几块。</p>
+    <div class="field"><label class="l" for="m_cd">Doctor 份</label><input id="m_cd" type="number" inputmode="numeric" min="0" value="${(b.cells&&b.cells.doctor)||''}"></div>
+    <div class="field"><label class="l" for="m_cm">Missy 份</label><input id="m_cm" type="number" inputmode="numeric" min="0" value="${(b.cells&&b.cells.missy)||''}"></div>
+    <div class="bar"><button class="btn primary" data-savecells="${b.id}" style="flex:1">保存</button><button class="btn ghost" data-close="1">取消</button></div>
+  </div></div>`;
+}
+function readCells(){ const v=id=>Math.max(0,Math.round(parseFloat(($('#'+id)||{}).value)||0)); const d=v('m_cd'), m=v('m_cm'); return (d||m)?{doctor:d,missy:m}:null; }
+function openMake(kind){
+  const X = LAST, {R, sheet} = X;
+  const type = R.organType;
+  let body = '';
+  if(kind==='organ'){
+    const O = sheet.organ, hadFd = ST.batches.some(b=>b.kind==='organ' && b.fdG>0);
+    const fd = O.fd ? (hadFd ? O.fd.g : Math.round(O.fd.g/2)) : 0;
+    body = Object.entries(O.recipe).map(([n,g],i)=>`<div class="field"><label class="l" for="m_r${i}">${esc(short(n))}<small>生重 g，实际用了多少</small></label><input id="m_r${i}" data-rn="${esc(n)}" type="number" inputmode="decimal" min="0" value="${type==='pork'?Math.round(O.use):g}"></div>`).join('')
+      + (O.fd?`<div class="field"><label class="l" for="m_fd">${esc(O.fd.name)}<small>g，实际放了多少</small></label><input id="m_fd" type="number" inputmode="decimal" min="0" step="1" value="${fd}"></div>`:'')
+      + cellFields();
+  } else if(kind==='fish'){
+    const Fi = sheet.fish;
+    body = `<div class="field"><label class="l" for="m_fishg">${esc(short(Fi.name))}<small>生重 g</small></label><input id="m_fishg" type="number" inputmode="decimal" min="0" value="${Math.round(Fi.raw)}"></div>
+` + cellFields();
+  } else {
+    const V = sheet.veg;
+    const eggDay = DOGS.reduce((s,k)=>s+(R.plan.dogs[k].days[TODAY].g['水煮蛋(全蛋)']||0),0);
+    body = Object.entries(V.mix).map(([n,g],i)=>`<div class="field"><label class="l" for="m_r${i}">${esc(short(n))}<small>g</small></label><input id="m_r${i}" data-rn="${esc(n)}" type="number" inputmode="decimal" min="0" value="${Math.round(g)}"></div>`).join('')
+      + (X.cfg.eggInVeg ? `<div class="field"><label class="l" for="m_egg">鸡蛋<small>个，一个按 50 g 算</small></label><input id="m_egg" type="number" inputmode="numeric" min="0" step="1" value="${Math.max(1,Math.round(eggDay*V.batchDays/50))}"></div>` : '');
+  }
+  const title = kind==='organ'?(type==='pork'?'猪肝块':'鸡内脏块'):kind==='fish'?'鱼块':'菜泥';
+  $('#sheetHost').innerHTML = `<div class="scrim" data-close="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="记下这批">
+    <h3>记下这批${title}</h3><p class="note" style="margin:0 0 6px">${md(TODAY)} 做的。克数不一样就改成实际的（生重）。</p>
+    ${body}
+    <div class="bar"><button class="btn primary" data-savemake="${kind}" style="flex:1">保存</button><button class="btn ghost" data-close="1">取消</button></div>
+  </div></div>`;
+}
+function saveMake(kind){
+  const X = LAST, {R, sheet} = X, type = R.organType;
+  const val = id => Math.max(0, parseFloat(($('#'+id)||{}).value)||0);
+  const recipe = {};
+  document.querySelectorAll('#sheetHost [data-rn]').forEach(el=>{ const x=Math.max(0,parseFloat(el.value)||0); if(x>0) recipe[el.dataset.rn]=x; });
+  const id = 'b'+Date.now().toString(36);
+  let b;
+  const share = shareOf(X.cfg);
+  if(kind==='organ'){
+    const O = sheet.organ, fdG = val('m_fd');
+    if(O.fd && fdG>0) recipe[O.fd.name] = fdG;
+    const days = O.days;
+    b = {id, kind, type, made:TODAY, recipe, fdG: O.fd?fdG:0, days, share, cells: readCells(), total:days, perDay:1};
+  } else if(kind==='fish'){
+    const Fi = sheet.fish, g = val('m_fishg');
+    recipe[Fi.name] = g;
+    b = {id, kind, made:TODAY, recipe, days:7, share: (Fi.share && Fi.share.doctor+Fi.share.missy>0.99) ? Fi.share : share, cells: readCells(), total:7, perDay:1};
+  } else {
+    const V = sheet.veg, tot = sum(recipe), both = Math.max(1, V.perDay.doctor+V.perDay.missy);
+    if(X.cfg.eggInVeg && val('m_egg')>0) recipe['水煮蛋(全蛋)'] = val('m_egg')*50;
+    const vegOnly = Object.entries(recipe).filter(([n])=>F[n]&&F[n].cat==='veg').reduce((s,[,g])=>s+g,0);
+    const vegBoth = V.perDay.doctor+V.perDay.missy;
+    const days = vegBoth>=1 && vegOnly>0 ? Math.max(1, Math.round(vegOnly/vegBoth)) : V.batchDays;
+    b = {id, kind, made:TODAY, recipe, days, share, total:days, perDay:1};
+  }
+  ST.batches.push(b);
+  // 旧批次只留最近 60 天
+  const cut = C.addDays(TODAY,-60); ST.batches = ST.batches.filter(x=>x.made>=cut);
+  saveCfg(); closeSheet(); render(); toast('这批已记下');
+}
+
+/* ───────────── 记录 ───────────── */
+function follow(date, quiet){
+  const X = LAST, P = planFor(X.cfg, date), logs = X.logs[date]||{};
+  const rec = C.planToLog(P, date);
+  for(const k of DOGS){ if(!logs[k]) setLog(date, k, Object.assign(rec[k], {at:new Date().toISOString()})); }
+  if(!quiet){ render(); toast(`${md(date)} 已记录`); }
+}
+function undoDay(date){ for(const k of DOGS) setLog(date, k, null); render(); toast('已撤销'); }
+
+/* ───────────── 主渲染 ───────────── */
+let LAST = null;
+function render(){
+  const now = C.ds(new Date()); if(now!==TODAY){ TODAY = now; }
+  let X;
+  try{ X = compute(); }
+  catch(e){ $('#view').innerHTML = `<section><div class="err">计算出错：${esc(e.message||e)}。请把这句话发给 Claude。</div></section>`; console.error(e); return; }
+  LAST = X;
+  paintHdr(X);
+  const html = UI.tab==='today'?viewToday(X):UI.tab==='prep'?viewPrep(X):viewDogs(X);
+  $('#view').innerHTML = html;
+  document.querySelectorAll('#tabs button').forEach(b=>{
+    if(b.dataset.tab===UI.tab) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
+  });
+}
+function go(tab){ UI.tab = tab; try{ history.replaceState(null,'','#'+tab) }catch(e){} render(); window.scrollTo(0,0); }
+
+/* ───────────── 事件 ───────────── */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('button,[data-close]'); if(!t) return;
+  const d = t.dataset;
+  if(d.close && e.target!==t && !e.target.closest('button')) return;   // 只有点到遮罩本身或取消按钮才关
+  if(d.close){ closeSheet(); return; }
+  if(d.tab) return go(d.tab);
+  if(d.go) return go(d.go);
+  if(d.export) return exportData();
+  if(d.follow) return follow(d.follow);
+  if(d.followAll){ const X=LAST; C.range(X.R.weekStart, C.addDays(TODAY,-1)).forEach(dd=>{ const l=X.logs[dd]||{}; if(!(l.doctor&&l.missy)) follow(dd,true); }); render(); toast('已按建议补记'); return; }
+  if(d.train!=null){
+    const tr = ST.cfg.train = Object.assign({days:{}, pct:{doctor:0.1, missy:0.1}}, clone(ST.cfg.train||{}));
+    tr.days = Object.assign({}, tr.days);
+    if(d.train==='1') tr.days[TODAY]=true; else delete tr.days[TODAY];
+    const cut = C.addDays(TODAY,-60); for(const k in tr.days) if(k<cut) delete tr.days[k];
+    saveCfg(); render(); toast(d.train==='1'?'今天健身：正餐已减掉零食的热量':'今天不健身'); return;
+  }
+  if(d.mode){ UI.mode = d.mode; try{ localStorage.setItem('dmk2mode', d.mode) }catch(e){} return render(); }
+  if(d.status){
+    const on = ST.cfg.recovery && ST.cfg.recovery.on;
+    if(d.status==='recovery' && !on){ ST.cfg.recovery = {on:true, start:TODAY, v:2, lv:{}, hist:[], kcal:Object.fromEntries(DOGS.map(x=>[x, Math.round(ST.cfg.dogs[x].kcal*0.85/5)*5]))}; saveCfg(); render(); toast('进入恢复期'); }
+    if(d.status==='normal' && on){ ST.cfg.recovery = Object.assign(clone(ST.cfg.recovery), {on:false}); saveCfg(); render(); toast('回到正常饮食'); }
+    return;
+  }
+  if(d.undo) return undoDay(d.undo);
+  if(d.edit) return openEdit(d.edit, d.date);
+  if(d.saveedit) return saveEdit();
+  if(d.clearlog){ setLog(d.date, d.clearlog, null); closeSheet(); render(); toast('已删除'); return; }
+  if(d.make) return openMake(d.make);
+  if(d.savemake) return saveMake(d.savemake);
+  if(d.delbatch){
+    if(t.dataset.armed){ ST.batches = ST.batches.filter(b=>b.id!==d.delbatch); saveCfg(); render(); toast('这批已删除'); }
+    else { t.dataset.armed='1'; t.textContent='再点一次删除'; setTimeout(()=>{ if(t.isConnected){ delete t.dataset.armed; t.textContent='删除'; } },4000); }
+    return;
+  }
+  if(d.dog){ UI.dog = d.dog; return render(); }
+  if(d.setdog){ UI.setDog = d.setdog; return render(); }
+  if(d.thisweek){ ST.cfg.organ.anchor = {week:C.weekStart(TODAY), type:d.thisweek}; ST.cfg.anchorConfirmed = true; saveCfg(); render(); toast('已改为'+TYPE_N[d.thisweek]); return; }
+  if(d.veg){
+    const n = d.veg, v = nextVeg(), on = v[n]>0;
+    if(on){ if(Object.values(v).filter(x=>x>0).length<=1){ toast('至少留一种菜'); return; } delete v[n]; } else v[n]=1;
+    ST.cfg.veg = v; ST.cfg.vegAuto = false; saveCfg(); render(); return;
+  }
+  if(d.organmode){ ST.cfg.organMode = d.organmode; saveCfg(); render(); toast(d.organmode==='fd'?'内脏改用冻干':'内脏改回内脏块'); return; }
+  if(d.vegauto){ ST.cfg.vegAuto = true; saveCfg(); render(); toast('菜泥回到建议轮换'); return; }
+  if(d.rec){
+    const r = ST.cfg.recovery = ST.cfg.recovery ? clone(ST.cfg.recovery) : null;
+    if(d.rec==='start'){
+      ST.cfg.recovery = {on:true, start:TODAY, v:2, lv:{}, hist:[], kcal:Object.fromEntries(DOGS.map(x=>[x, Math.round(ST.cfg.dogs[x].kcal*0.85/5)*5]))};
+      saveCfg(); go('today'); toast('恢复期开始了'); return;
+    }
+    if(!r) return;
+    if(d.rec==='end'){ r.on=false; ST.cfg.recovery=r; if(C.recFrac(C.recState(ST.cfg),'veg')>=1) ST.cfg.vegScale=1; saveCfg(); render(); toast('恢复期结束，回到平时的配方'); return; }
+    if(d.rec==='add' || d.rec==='back'){
+      const st = C.recoveryStep(ST.cfg, TODAY, d.rec==='add'?1:-1); if(!st.k) return;
+      ST.cfg.recovery = st.r;
+      if(st.k==='veg'){ const f = C.recFrac(C.recState(ST.cfg),'veg'); if(f>0) ST.cfg.vegScale = f; }
+      saveCfg(); render();
+      toast(d.rec==='add' ? (st.k==='kcal'?'热量加了 10%':'已加到：'+st.label) : '已退一档'); return;
+    }
+    return;
+  }
+  if(d.egginveg){ ST.cfg.eggInVeg = d.egginveg==='1'; saveCfg(); render(); return; }
+  if(d.cells) return openCells(d.cells);
+  if(d.savecells){ const b=ST.batches.find(x=>x.id===d.savecells); if(b){ b.cells=readCells(); saveCfg(); } closeSheet(); render(); toast('格数已记下'); return; }
+  if(d.carbsplit){ ST.cfg.carbSplit = parseFloat(d.carbsplit); saveCfg(); render(); return; }
+  if(d.boxweek){ UI.boxWeek = d.boxweek; return render(); }
+  if(d.vegscale){ ST.cfg.vegScale = parseFloat(d.vegscale); saveCfg(); render(); return; }
+  if(d.dogflag){ ST.cfg.dogs[d.who][d.dogflag] = d.val==='1'; saveCfg(); render(); toast(`${DOGN[d.who]}：${d.dogflag==='noEgg'?'鸡蛋':'鱼块'}${d.val==='1'?'不吃了':'恢复'}`); return; }
+});
+document.addEventListener('change', e=>{
+  if(e.target.dataset && e.target.dataset.import){ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) importData(f); return; }
+  const t = e.target, d = t.dataset;
+  if(d.cookdry || d.cooktot){
+    const n = d.cookdry || d.cooktot, x = parseFloat(t.value);
+    if(!COOK || COOK.date!==TODAY) COOK = {date:TODAY, items:{}};
+    const it = COOK.items[n] = Object.assign({}, COOK.items[n]);
+    if(d.cookdry) it.dry = x>0 ? x : 0; else it.total = x>0 ? x : 0;
+    if(!(it.dry>0)){ const inp = document.getElementById('ckd_'+n); it.dry = inp ? parseFloat(inp.value)||0 : 0; }
+    saveCook(); render(); return;
+  }
+  if(d.cfg){ ST.cfg[d.cfg] = t.type==='number' ? (parseFloat(t.value)||ST.cfg[d.cfg]) : t.value;
+    if(ST.cfg.carb2 && ST.cfg.carb2===ST.cfg.carb) ST.cfg.carb2='';
+    saveCfg(); render(); return; }
+  if(d.cfg2){ const [a,b] = d.cfg2.split('.'); ST.cfg[a][b] = t.value; saveCfg(); render(); return; }
+  if(d.trainpct){ const x=parseFloat(t.value); if(x>=0){ const tr = ST.cfg.train = Object.assign({days:{}, pct:{doctor:0.1, missy:0.1}}, clone(ST.cfg.train||{})); tr.pct = Object.assign({}, tr.pct, {[d.trainpct]: x/100}); saveCfg(); } render(); return; }
+  if(d.reck){ const x=parseFloat(t.value); if(x>0){ ST.cfg.recovery = clone(ST.cfg.recovery); ST.cfg.recovery.kcal[d.reck]=x; saveCfg(); } render(); return; }
+  if(d.dogf){
+    const x = parseFloat(t.value); if(!(x>=0)) { render(); return; }
+    ST.cfg.dogs[d.who||UI.setDog][d.dogf] = x; saveCfg(); render(); return;
+  }
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && EDIT!==null) closeSheet(); if(e.key==='Escape') closeSheet(); });
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
+setInterval(()=>{ if(C.ds(new Date())!==TODAY) render(); }, 60000);
+window.addEventListener('error', ev=>{ try{ $('#toastHost').innerHTML = `<div class="toast" role="alert">出错了：${esc(ev.message)}</div>` }catch(_){} });
+
+render();
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+
+</body></html>
