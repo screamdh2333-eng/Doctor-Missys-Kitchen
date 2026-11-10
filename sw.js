@@ -1,5 +1,5 @@
 // 离线缓存：改了页面后把 VERSION 加一，手机下次联网打开就会更新
-const VERSION = 'kitchen-v2';
+const VERSION = 'kitchen-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
