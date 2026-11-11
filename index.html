@@ -174,6 +174,19 @@ table.qt tr.sug td{color:var(--ink2);font-size:12px;border-bottom:1px solid var(
 .boxdog h4{margin:0 0 2px;font-size:14px}
 .boxdog .kv{list-style:none;margin:0;padding:0}
 .boxdog .kv li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.mtab{padding:10px 10px 12px}
+table.mt{width:100%;border-collapse:collapse;margin:6px 0 10px;font-size:14px}
+table.mt th,table.mt td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+table.mt thead th{font-size:13px;font-weight:700;border-bottom:2px solid var(--line)}
+table.mt thead th.ttl{font-size:15px}
+table.mt td,table.mt thead th.d,table.mt thead th.m{text-align:right;white-space:nowrap}
+table.mt.info td{white-space:normal;font-size:13px;line-height:1.45}
+table.mt.info td .num{font-size:14px}
+table.mt.info tbody th{width:30%}
+table.mt th small,table.mt td small{display:block;font-size:11px;font-weight:400;color:var(--ink3);white-space:normal;margin-top:2px}
+table.mt tbody th{font-weight:600;width:42%}
+table.mt td .num{font-size:17px;font-weight:700}
+.recrow{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:6px}
 .mealh{display:flex;justify-content:space-between;align-items:baseline;margin:10px 14px 0;padding-top:8px;border-top:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink2)}
 .mealh .kc{font-weight:400;font-size:12px;color:var(--ink3)}
 .pre{margin:8px 14px 0;font-size:13px;color:var(--ink2)}
@@ -2055,7 +2068,8 @@ function mealPlan(P, k, date, nMeals){
   const kc = n => (F[n] ? (F[n].kcal||0) : 0)/100, ft = n => (F[n] ? (F[n].f||0) : 0)/100;
   const oilEx = P.oil ? (P.oil.extra[k]||0) : 0, oilIn = P.oil ? (P.oil.inRice[k]||0) : 0;
   const box = (P.dogs[k].box||{})[date] || {}, foG = (box.foCap||0)*C.SUPP.fo.gPerCap;
-  let Ek = foG*9, Ef = foG; const mc = [];
+  // 鱼油胶囊早餐单独给（不放药盒），帮两餐的脂肪拉平
+  const Bk = foG*9, Bf = foG; let Ek = 0, Ef = 0; const mc = [];
   for(const n in day.g){ const c = F[n] && F[n].cat;
     if(c==='protein' || c==='carb'){ mc.push(n); continue; }
     if(n===C.OIL || n===C.ELM) continue;
@@ -2070,7 +2084,7 @@ function mealPlan(P, k, date, nMeals){
   else if(meals>2){ sm = sc = 1/meals; }
   else {
     // 早餐 = 晚餐：热量 2(sm·Mk + sc·Ck) = Mk + Ck + Ek；脂肪 2(sm·Mf + sc·Cf) = Mf + Cf + Ef
-    const a1 = 2*Mk, b1 = 2*Ck, c1 = Mk+Ck+Ek, a2 = 2*Mf, b2 = 2*Cf, c2 = Mf+Cf+Ef, det = a1*b2 - a2*b1;
+    const a1 = 2*Mk, b1 = 2*Ck, c1 = Mk+Ck+Ek-Bk, a2 = 2*Mf, b2 = 2*Cf, c2 = Mf+Cf+Ef-Bf, det = a1*b2 - a2*b1;
     if(Math.abs(det) > 1e-6){ sm = (c1*b2 - c2*b1)/det; sc = (a1*c2 - a2*c1)/det; } else { sm = sc = c1/(a1+b1); }
     if(!(sm>=0.4 && sm<=0.7 && sc>=0.3 && sc<=0.8)){      // 拉不平脂肪：早餐的肉最多 70%（两餐蛋白别差太多），碳水保证热量接近
       sm = Math.min(0.7, Math.max(0.4, sm)); sc = Ck>0 ? cl((c1 - 2*sm*Mk)/(2*Ck)) : sm; }
@@ -2080,10 +2094,98 @@ function mealPlan(P, k, date, nMeals){
   for(const n of mc){ bf[n] = g0(n)*frac(n); dn[n] = Math.max(0, (day.g[n]||0) - bf[n]*(meals-1)); }
   const oilEach = meals>1 ? oilEx/meals : oilEx;
   const sum2 = (o, f) => mc.reduce((a,n)=>a+f(n)*o[n],0);
-  const bfK = sum2(bf,kc) + oilIn*8.84*sc + oilEach*8.84, bfF = sum2(bf,ft) + oilIn*sc + oilEach;
+  const bfK = sum2(bf,kc) + oilIn*8.84*sc + oilEach*8.84 + (meals>1?Bk:0), bfF = sum2(bf,ft) + oilIn*sc + oilEach + (meals>1?Bf:0);
   const rIn = Math.max(0, 1 - sc*(meals-1));
-  const dnK = sum2(dn,kc) + oilIn*8.84*rIn + oilEach*8.84 + Ek, dnF = sum2(dn,ft) + oilIn*rIn + oilEach + Ef;
+  const dnK = sum2(dn,kc) + oilIn*8.84*rIn + oilEach*8.84 + Ek + (meals>1?0:Bk), dnF = sum2(dn,ft) + oilIn*rIn + oilEach + Ef + (meals>1?0:Bf);
   return {meals, s:sc, sm, sc, bf, dn, bfK, dnK, bfF, dnF, mc, oilEx, oilIn, oilEach};
+}
+// 一只狗一天的喂食内容（按餐分好），给「今天吃什么」的表格用
+function dogMeals(X, k, date){
+  const {cfg, logs} = X;
+  const P = planFor(cfg, date), day = P.dogs[k].days[date], box = P.dogs[k].box[date];
+  const sp = splitDay(day.g), dog = cfg.dogs[k];
+  const M = mealPlan(P, k, date, dog.meals);
+  const vegG = sum(sp.veg);
+  const it = (key, name, note, html, g) => ({key, name, note, html, g});
+  const pot = date===TODAY ? cookBatch(cfg.carb) : null, potOn = pot && !pot.done;
+  const potC2 = potOn ? (pot.c.c2||'') : '';
+  const mcItems = mp => { const out = [], carbs = M.mc.filter(n=>F[n].cat==='carb'), meats = M.mc.filter(n=>F[n].cat!=='carb');
+    for(const n of meats) out.push(it('m:'+n, short(n), '熟重', amt(mp[n]), mp[n]));
+    const inPot = potOn && carbs.every(n=>n===cfg.carb || n===potC2) && carbs.includes(cfg.carb) && (!potC2 || carbs.includes(potC2));
+    if(inPot){ const g = carbs.reduce((a,n)=>a+mp[n],0)*pot.ratio, nm = potC2?`${short(cfg.carb)}+${short(potC2)}`:short(cfg.carb);
+      out.push(it('carb', nm, '成品重量（按这一锅算）', amt(g), g)); }
+    else for(const n of carbs){
+      const note = F[n].basis!=='dry' ? '熟重' : (potOn && dog.riceOnly) ? `恢复期只吃白米：另外蒸一点白米饭，按${wLbl(n)}称` : `${wLbl(n)}；在「做饭」页记下这一锅后显示成品重量`;
+      out.push(it(potOn && dog.riceOnly ? 'rice-only' : 'carb', short(n), note, amt(mp[n]), mp[n])); }
+    return out; };
+  const oilItem = () => M.oilEach>0.02 ? [it('oil', '葡萄籽油', `滴在饭上，约 ${M.oilEach<0.3 ? Math.max(1,Math.round(M.oilEach/0.03))+' 滴' : (M.oilEach/0.92).toFixed(1)+' ml'}`, amt(M.oilEach), M.oilEach)] : [];
+  const half = sc => sc!=null && sc<1;
+  const extra = [];
+  for(const [n,g] of Object.entries(sp.organ)){ if(!(g>0.05)) continue;
+    if(n===C.CLIVER){ const ck = date===TODAY ? cookedFor(n,g) : null;
+      extra.push(it('cl', '蒸鸡肝', ck!=null ? `成品重量（生重 ${g1(g)} g）` : `成品是估的，约生重 × 0.9（生重 ${g1(g)} g）`, amt(ck!=null ? ck : g*CL_YIELD), g));
+    } else if(cfg.organMode==='fd'){
+      const bl = F[n].cat==='blood_fd';
+      extra.push(it('fd:'+n, n.replace('块',''), `喂之前称，剪碎拌饭${(bl ? half(cfg.bloodScale) : half(cfg.organScale))?'；恢复期半量':''}`, amt(g), g));
+    }
+  }
+  if(cfg.organMode!=='fd'){ const orgG = Object.entries(sp.organ).filter(([n])=>n!==C.CLIVER).reduce((a,[,g])=>a+g,0);
+    if(orgG>0) extra.push(it('organ', P.organType==='pork'?'猪肝块':'鸡内脏块', '', amt(orgG), orgG)); }
+  if(sp.fishG>0){
+    const fab = activeBatch('fish', null, date);
+    if(fab && fab.b.cooked>0 && fab.b.share && fab.b.days){
+      const sc = cfg.fishScale, g = fab.b.cooked*fab.b.share[k]/fab.b.days*(half(sc)?sc:1);
+      extra.push(it('fish', short(sp.fish||cfg.fish), `成品重量${half(sc)?'；恢复期半量':''}`, amt(g), g));
+    } else extra.push(it('fish', short(sp.fish||cfg.fish), '还没记下这一批，先按生重', amt(sp.fishG), sp.fishG));
+  }
+  if(vegG>0 || (cfg.eggInVeg && sp.egg>0)){
+    const vab = activeBatch('veg', null, date), rawTot = vab ? sum(vab.b.recipe) : 0;
+    const raw = vegG + (cfg.eggInVeg ? sp.egg : 0), fin = (vab && vab.b.cooked>0 && rawTot>0) ? raw*vab.b.cooked/rawTot : null;
+    extra.push(it('veg', cfg.eggInVeg ? (vegG>0.05?'菜蛋泥':'鸡蛋泥') : '菜泥', `${Object.keys(sp.veg).map(short).join('、')}；${fin!=null?'成品重量':'按生重，记下这一批后显示成品'}${cfg.vegScale<1?`；适应期 ${Math.round(cfg.vegScale*100)}%`:''}`, amt(fin!=null ? fin : raw), raw));
+  }
+  if(sp.eggParts && (sp.eggParts[C.EGG_WHITE]||sp.eggParts[C.EGG_YOLK])){
+    const fr = x => { const q=Math.round(x*4)/4; return q===0.25?'¼':q===0.5?'½':q===0.75?'¾':String(q); };
+    const w = (sp.eggParts[C.EGG_WHITE]||0)/32, y = (sp.eggParts[C.EGG_YOLK]||0)/18;
+    extra.push(it('egg', '白煮蛋', y>0?'蛋白加一部分蛋黄':'只给蛋白', `<span class="num">白 ${fr(w)}${y>0?` + 黄 ${fr(y)}`:''}</span>`, 1));
+  } else if(!cfg.eggInVeg && sp.egg>0) extra.push(it('egg', '白煮蛋', '去壳，不加盐', `<span class="num">${eggText(sp.egg)}</span>`, sp.egg));
+  if(cfg.inRecovery && cfg.suppOff) extra.push(it('box', '钙粉', '恢复期只给钙粉', `<span class="num">${box.caG.toFixed(2)}</span><span class="unit">g</span>`, 1));
+  else extra.push(it('box', '药盒', `「${wd(date)}」那格，整格倒进饭里`, `<span class="num">1</span><span class="unit">格</span>`, 1));
+  const meals = M.meals;
+  const wk = C.zero(), dd = Object.values(P.dogs[k].days); dd.forEach(r=>{ for(const n in wk) wk[n] += (r.tAll[n]||0)/dd.length; });
+  return {k, dog, day, wk, M, meals, elm: sp.other[C.ELM]||0, trK: C.treatKcal(cfg, k, date), L: logs[date] && logs[date][k],
+    bf: meals===1 ? [] : [...mcItems(M.bf), ...oilItem(), ...(box && box.foCap ? [it('fo', '鱼油', '整粒拌进饭里（不放药盒）', `<span class="num">${box.foCap}</span><span class="unit">粒</span>`, box.foCap)] : [])],
+    dn: [...mcItems(M.dn), ...oilItem(), ...extra]};
+}
+// 一餐的表格：每种食材一行，两只狗各一列
+function mealTable(title, D, which){
+  const keys = [];
+  for(const d of D) for(const x of d[which]) if(!keys.find(y=>y.key===x.key)) keys.push({key:x.key, name:x.name});
+  const kc = d => which==='bf' ? d.M.bfK : d.M.dnK, fg = d => which==='bf' ? d.M.bfF : d.M.dnF;
+  const rows = keys.map(({key,name})=>{
+    const xs = D.map(d=>d[which].find(x=>x.key===key));
+    const notes = xs.filter(Boolean).map(x=>x.note), same = notes.every(n=>n===notes[0]);
+    return `<tr><th>${esc(name)}${same && notes[0]?`<small>${esc(notes[0])}</small>`:''}</th>${xs.map((x,i)=>`<td class="${D[i].k==='doctor'?'d':'m'}">${x ? x.html + (!same && x.note ? `<small>${esc(x.note)}</small>` : '') : '<span class="muted">—</span>'}</td>`).join('')}</tr>`;
+  }).join('');
+  return `<table class="mt"><thead><tr><th class="ttl">${title}</th>${D.map(d=>`<th class="${d.k==='doctor'?'d':'m'}">${esc(d.dog.name.split(' ')[0])}<small>${Math.round(kc(d))} kcal<br>脂肪 ${fg(d).toFixed(1)} g</small></th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+// 现在这样吃的关键信息（今天）
+function keyInfo(D){
+  const r = d => { const t = d.wk; if(!t || !(t.kcal>0)) return null;
+    const e = t.p*3.5 + t.f*8.5 + t.c*3.5 || 1, dog = d.dog;
+    const fatT = [dog.fatMinG||dog.fatMaxG ? `${dog.fatMinG?dog.fatMinG:''}${dog.fatMinG&&dog.fatMaxG?'–':dog.fatMinG?' 以上':'不超过 '}${dog.fatMaxG||''} g/1000 kcal` : '', dog.fatMax ? `不超过热量的 ${dog.fatMax}%` : ''].filter(Boolean).join('，') || '—';
+    const eF = d.elm*(F[C.ELM]?F[C.ELM].fiber:60)/100, n3 = t.ala + t.epadha/1000;
+    return {kcal: Math.round(t.kcal), p: t.p*3.5/e*100, f: t.f*8.5/e*100, c: t.c*3.5/e*100, fg: t.f, f1000: t.f/t.kcal*1000, fatT,
+      fib: t.dm>0 ? t.fiber/t.dm*100 : 0, fibG: t.fiber, eF, n63: n3>0 ? t.la/n3 : null, cap: t.ph>0 ? t.ca/t.ph : 0}; };
+  const R = D.map(r);
+  const row = (label, f, hint) => `<tr><th>${label}${hint?`<small>${hint}</small>`:''}</th>${R.map((x,i)=>`<td class="${D[i].k==='doctor'?'d':'m'}">${x?f(x,D[i]):'—'}</td>`).join('')}</tr>`;
+  return `<table class="mt info"><thead><tr><th class="ttl">现在这样吃<small>本周每天平均</small></th>${D.map(d=>`<th class="${d.k==='doctor'?'d':'m'}">${esc(d.dog.name.split(' ')[0])}</th>`).join('')}</tr></thead><tbody>
+    ${row('全天热量', x=>`<span class="num">${x.kcal}</span> kcal`)}
+    ${row('供能比', x=>`蛋白 ${x.p.toFixed(0)}%<br>脂肪 ${x.f.toFixed(0)}%<br>碳水 ${x.c.toFixed(0)}%`)}
+    ${row('脂肪', x=>`<span class="num">${x.fg.toFixed(1)}</span> g/天<br><span class="num">${x.f1000.toFixed(1)}</span> g/1000 kcal<small>目标：${x.fatT}</small>`, 'AAFCO 最低 13.8 g/1000 kcal')}
+    ${row('纤维', x=>`<span class="num">${x.fib.toFixed(1)}%</span> 干物质<br>${g1(x.fibG)} g/天${x.eF>0?`<small>其中滑榆皮 ${g1(x.eF)} g</small>`:''}`, '胃肠病常用 3–7%')}
+    ${row('ω-6 : ω-3', x=>x.n63!=null?`<span class="num">${x.n63.toFixed(1)}</span> : 1`:'—', `目标 ≤ ${C.FO_RATIO}:1`)}
+    ${row('钙磷比', x=>`<span class="num">${x.cap.toFixed(2)}</span>`, '1–2')}
+  </tbody></table>`;
 }
 function viewToday(X){
   OILNOW = X.R.plan.oil || null;
@@ -2098,10 +2200,20 @@ function viewToday(X){
       ${pick ? `<select id="selMeat" data-cfg="meat" style="flex:1;min-width:120px">${PROTEINS.map(n=>`<option value="${esc(n)}"${n===ST.cfg.meat?' selected':''}>${esc(short(n))}${F[n].fe<C.LOW_FE?'（铁少）':''}</option>`).join('')}</select>` : `<b>${esc(short(S.meat))}</b><span class="note">${S.why}</span>`}
       <span class="seg" role="group" style="margin-left:auto"><button type="button" data-mode="suggest" aria-pressed="${!pick}">建议</button><button type="button" data-mode="pick" aria-pressed="${pick}">自选</button></span>
     </div></div></section>`;
+  const D = DOGS.map(k=>dogMeals(X,k,TODAY));
+  const st = D.filter(d=>d.dog.status && d.dog.status!=='normal').map(d=>`${esc(d.dog.name.split(' ')[0])}：${C.STATUS[d.dog.status].n}，碳水只用大米`);
+  const elm = D.filter(d=>d.elm>0);
+  const oneMeal = D.every(d=>d.meals===1);
+  const trains = D.filter(d=>d.trK>0);
   return recoveryStrip(X) + alertHtml(nowL) + meatCard + `
-  <section>
-    <div class="dogs">${DOGS.map(k=>dogCard(X,k,TODAY)).join('')}</div>
-  </section>
+  <section><div class="card mtab">
+    ${st.length?`<p class="pre" style="margin:0 0 8px">${st.join('；')}</p>`:''}
+    ${elm.length?`<p class="pre" style="margin:0 0 8px">饭前 30 分钟，滑榆皮粉用水调糊：${elm.map(d=>`${esc(d.dog.name.split(' ')[0])} 每次 <b class="num">${g1(d.elm/d.meals)}</b> g`).join('，')}</p>`:''}
+    ${oneMeal ? '' : mealTable('早餐', D, 'bf')}
+    ${mealTable(oneMeal?'全天一餐':'晚餐', D, 'dn')}
+    ${trains.length?`<div class="treat" style="margin:8px 0 0"><b>今天健身：晚餐已少给 ${trains.map(d=>`${esc(d.dog.name.split(' ')[0])} ${Math.round(d.trK)} kcal`).join('、')}</b>，留给训练零食。没用完不用补。</div>`:''}
+    <div class="recrow">${D.map(d=>`<span>${esc(d.dog.name.split(' ')[0])}${d.L?` <span class="st ${d.L.fromPlan?'ok':'info'}">${d.L.fromPlan?'已按计划记录':'已记录（有改动）'}</span>`:''} <button class="btn small ghost" data-edit="${d.k}" data-date="${TODAY}">${d.L?'修改':'有变动'}</button></span>`).join('')}</div>
+  </div></section>
   <section>
     <div class="card"><div class="field" style="border:0;padding:0"><span class="l">今天健身<small>打开后晚餐少给 ${Math.round(((ST.cfg.train&&ST.cfg.train.pct&&ST.cfg.train.pct.missy)||0.1)*100)}% 热量，留给训练零食；早餐不变</small></span>
       <span class="seg" role="group"><button type="button" data-train="0" aria-pressed="${!trainToday}">不健身</button><button type="button" data-train="1" aria-pressed="${trainToday}">健身</button></span></div></div>
@@ -2110,8 +2222,9 @@ function viewToday(X){
     ${both ? `<div class="done"><span>今天已记录</span><button class="btn small" data-undo="${TODAY}">撤销</button></div>`
            : `<button class="btn primary wide" data-follow="${TODAY}">${anyLogged?'其余照这个记录':'照做了，记录今天'}</button>
               <p class="note" style="text-align:center;margin:8px 0 0">哪只吃得不一样，先点它的「有变动」。</p>`}
-    ${laterN ? `<p style="text-align:center;margin:12px 0 0"><button class="btn small ghost" data-go="dogs">还有 ${laterN} 条不急的提醒，在「两只狗」页</button></p>` : ''}
-  </section>`;
+  </section>
+  <section><div class="card mtab">${keyInfo(D)}</div></section>
+  ${laterN ? `<section><p style="text-align:center;margin:0"><button class="btn small ghost" data-go="dogs">还有 ${laterN} 条不急的提醒，在「两只狗」页</button></p></section>` : ''}`;
 }
 
 /* ───────────── 做饭 ───────────── */
@@ -2467,12 +2580,12 @@ function boxWeek(X){
     if(b.vbTab) t.push(`维B ${b.vbTab} 片`);
     if(b.veCap) t.push(`维E ${b.veCap} 粒`);
     if(b.vdCap) t.push(`维D ${b.vdCap} 粒`);
-    if(b.foCap) t.push(`鱼油 ${b.foCap} 粒`);
     if(b.tauCap) t.push(`牛磺酸 ${b.tauCap} 粒`);
+    if(b.foCap) t.push(`<span class="muted">鱼油 ${b.foCap} 粒（早餐）</span>`);
     return t.length ? t.join('<br>') : '<span class="muted">空</span>';
   };
   // 整颗放的：一周几粒、放哪几天
-  const WHOLE = [['iTab','碘片','片'],['znTab','锌片','片'],['vbTab','复合维生素B','片'],['veCap','维生素E','粒'],['vdCap','维生素D（星鲨 400 单位）','粒'],['foCap',`鱼油（${C.SUPP.fo.name}）`,'粒'],['tauCap','牛磺酸（500 mg）','粒']];
+  const WHOLE = [['iTab','碘片','片'],['znTab','锌片','片'],['vbTab','复合维生素B','片'],['veCap','维生素E','粒'],['vdCap','维生素D（星鲨 400 单位）','粒'],['foCap',`鱼油（${C.SUPP.fo.name}）· 不放药盒，早餐单独给`,'粒'],['tauCap','牛磺酸（500 mg）','粒']];
   const dayTxt = (k, f) => { const per = days.map(d=>P.dogs[k].box[d][f]||0), n = per.reduce((a,b)=>a+b,0); if(!n) return null;
     const on = days.filter((d,i)=>per[i]>0), same = per.filter(x=>x>0).every(x=>x===per.find(y=>y>0));
     const when = on.length===7 ? `每天 ${per[0]}` : `${on.map(wd).join('、')}${same&&per.find(y=>y>0)>1?` 各 ${per.find(y=>y>0)}`:''}`;
@@ -2492,6 +2605,7 @@ function boxWeek(X){
   const tips = [];
   if(any('vdCap') || any('foCap') || any('veCap')) tips.push('维D、维E、鱼油是脂溶性的，已经分到不同的天，按上面写的天放，不要挪到同一天。');
   if(any('vbTab')) tips.push('复合维生素B 也已经隔开放在不同的天。');
+  if(any('foCap')) tips.push('鱼油不放进药盒：那天早餐整粒拌进饭里，让早晚两餐的脂肪差不多。');
   tips.push('混合粉里的钙、锌、镁可以一起给，按现在的量不用分开。');
   tips.push('有药要吃时：药和滑榆皮隔开 1–2 小时；吃抗生素期间，益生菌和抗生素隔开 2 小时（布拉迪酵母是酵母，不受影响）。');
   tips.push('益生菌和布拉迪酵母：每天各 1 粒，可以一起放进药盒，不计入营养。');
