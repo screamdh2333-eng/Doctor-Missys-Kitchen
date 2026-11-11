@@ -2046,27 +2046,44 @@ function potCard(X){
   </div>`;
   return `<section class="card batch"><div class="head"><h3>${esc(name)}</h3><span class="note">一锅出 · 下锅重量 → 成品</span></div>${head}${form}${oilSeg}</section>`;
 }
-// 一只狗一天的量怎么分到早餐和晚餐。早餐只有肉和碳水；其他都在晚餐。
-// 早餐多给一点肉和碳水，让两餐热量接近（早餐占肉和碳水的比例 s，最多 65%）。健身日少的热量只从晚餐扣。
+// 一只狗一天的量怎么分到早餐和晚餐。早餐只有肉和碳水（另外滴的油早晚各一半）；其他都在晚餐。
+// 两餐的热量和脂肪都尽量拉平：晚餐有鸡肝、冻干、药盒里的鱼油，所以早餐多给一点肉、晚餐多给一点米饭。
+// 肉分到早餐的比例 sm（40%–70%）、碳水 sc（30%–80%）；拉不平脂肪时至少保证热量接近。健身日少的热量只从晚餐扣。
 function mealPlan(P, k, date, nMeals){
   const day = P.dogs[k].days[date];
   const meals = Math.max(1, Math.round(nMeals||2)), base = day.base;
-  const kc = n => (F[n] ? (F[n].kcal||0) : 0)/100;
+  const kc = n => (F[n] ? (F[n].kcal||0) : 0)/100, ft = n => (F[n] ? (F[n].f||0) : 0)/100;
   const oilEx = P.oil ? (P.oil.extra[k]||0) : 0, oilIn = P.oil ? (P.oil.inRice[k]||0) : 0;
-  let E = 0; const mc = [];
+  const box = (P.dogs[k].box||{})[date] || {}, foG = (box.foCap||0)*C.SUPP.fo.gPerCap;
+  let Ek = foG*9, Ef = foG; const mc = [];
   for(const n in day.g){ const c = F[n] && F[n].cat;
     if(c==='protein' || c==='carb'){ mc.push(n); continue; }
     if(n===C.OIL || n===C.ELM) continue;
-    E += kc(n)*day.g[n]; }
+    Ek += kc(n)*day.g[n]; Ef += ft(n)*day.g[n]; }
   const g0 = n => (base && base[n]!=null) ? base[n] : (day.g[n]||0);     // 不健身时的量
-  const MC0 = mc.reduce((a,n)=>a+kc(n)*g0(n),0) + (oilIn+oilEx)*8.84;
-  const s = meals===1 ? 0 : meals===2 ? Math.min(0.65, Math.max(0.5, 0.5 + (MC0>0 ? E/(2*MC0) : 0))) : 1/meals;
+  const meats = mc.filter(n=>F[n].cat!=='carb'), carbs = mc.filter(n=>F[n].cat==='carb');
+  const Mk = meats.reduce((a,n)=>a+kc(n)*g0(n),0), Mf = meats.reduce((a,n)=>a+ft(n)*g0(n),0);
+  const Ck = carbs.reduce((a,n)=>a+kc(n)*g0(n),0) + oilIn*8.84, Cf = carbs.reduce((a,n)=>a+ft(n)*g0(n),0) + oilIn;
+  const cl = x => Math.min(0.8, Math.max(0.3, x));
+  let sm, sc;
+  if(meals===1){ sm = sc = 0; }
+  else if(meals>2){ sm = sc = 1/meals; }
+  else {
+    // 早餐 = 晚餐：热量 2(sm·Mk + sc·Ck) = Mk + Ck + Ek；脂肪 2(sm·Mf + sc·Cf) = Mf + Cf + Ef
+    const a1 = 2*Mk, b1 = 2*Ck, c1 = Mk+Ck+Ek, a2 = 2*Mf, b2 = 2*Cf, c2 = Mf+Cf+Ef, det = a1*b2 - a2*b1;
+    if(Math.abs(det) > 1e-6){ sm = (c1*b2 - c2*b1)/det; sc = (a1*c2 - a2*c1)/det; } else { sm = sc = c1/(a1+b1); }
+    if(!(sm>=0.4 && sm<=0.7 && sc>=0.3 && sc<=0.8)){      // 拉不平脂肪：早餐的肉最多 70%（两餐蛋白别差太多），碳水保证热量接近
+      sm = Math.min(0.7, Math.max(0.4, sm)); sc = Ck>0 ? cl((c1 - 2*sm*Mk)/(2*Ck)) : sm; }
+  }
+  const frac = n => F[n].cat==='carb' ? sc : sm;
   const bf = {}, dn = {};
-  for(const n of mc){ bf[n] = g0(n)*s; dn[n] = Math.max(0, (day.g[n]||0) - bf[n]*(meals-1)); }
+  for(const n of mc){ bf[n] = g0(n)*frac(n); dn[n] = Math.max(0, (day.g[n]||0) - bf[n]*(meals-1)); }
   const oilEach = meals>1 ? oilEx/meals : oilEx;
-  const bfK = mc.reduce((a,n)=>a+kc(n)*bf[n],0) + oilIn*8.84*s + oilEach*8.84;
-  const dnK = mc.reduce((a,n)=>a+kc(n)*dn[n],0) + oilIn*8.84*Math.max(0,1-s*(meals-1)) + oilEach*8.84 + E;
-  return {meals, s, bf, dn, bfK, dnK, mc, oilEx, oilIn, oilEach};
+  const sum2 = (o, f) => mc.reduce((a,n)=>a+f(n)*o[n],0);
+  const bfK = sum2(bf,kc) + oilIn*8.84*sc + oilEach*8.84, bfF = sum2(bf,ft) + oilIn*sc + oilEach;
+  const rIn = Math.max(0, 1 - sc*(meals-1));
+  const dnK = sum2(dn,kc) + oilIn*8.84*rIn + oilEach*8.84 + Ek, dnF = sum2(dn,ft) + oilIn*rIn + oilEach + Ef;
+  return {meals, s:sc, sm, sc, bf, dn, bfK, dnK, bfF, dnF, mc, oilEx, oilIn, oilEach};
 }
 function viewToday(X){
   OILNOW = X.R.plan.oil || null;
@@ -2393,13 +2410,13 @@ function dogCard(X, k, date){
   const elm = sp.other[C.ELM]||0;
   const L = logs[date] && logs[date][k];
   const trK = C.treatKcal(cfg, k, date);
-  const mh = (t, kc) => `<div class="mealh"><span>${t}</span><span class="kc">约 ${Math.round(kc)} kcal</span></div>`;
+  const mh = (t, kc, fg) => `<div class="mealh"><span>${t}</span><span class="kc">约 ${Math.round(kc)} kcal${fg!=null?` · 脂肪 ${fg.toFixed(1)} g`:''}</span></div>`;
   let body;
   if(meals===1){
-    body = mh('全天一餐', M.dnK) + `<ul class="rows">${mcRows(M.dn)}${oilRow()}${extra.join('')}</ul>`;
+    body = mh('全天一餐', M.dnK, M.dnF) + `<ul class="rows">${mcRows(M.dn)}${oilRow()}${extra.join('')}</ul>`;
   } else {
-    body = mh(meals===2 ? '早餐' : `早餐等 ${meals-1} 餐，每餐`, M.bfK) + `<ul class="rows">${mcRows(M.bf)}${oilRow()}</ul>`
-         + mh('晚餐', M.dnK) + `<ul class="rows">${mcRows(M.dn)}${oilRow()}${extra.join('')}</ul>`;
+    body = mh(meals===2 ? '早餐' : `早餐等 ${meals-1} 餐，每餐`, M.bfK, M.bfF) + `<ul class="rows">${mcRows(M.bf)}${oilRow()}</ul>`
+         + mh('晚餐', M.dnK, M.dnF) + `<ul class="rows">${mcRows(M.dn)}${oilRow()}${extra.join('')}</ul>`;
   }
   return `<article class="dog ${k}">
     <header><span class="name">${esc(dog.name)}</span>${dog.status&&dog.status!=='normal'?`<span class="st warn">${C.STATUS[dog.status].n}</span>`:''}<span class="kc">正餐全天 <span class="num">${Math.round(dog.kcal-trK)}</span> kcal</span></header>
