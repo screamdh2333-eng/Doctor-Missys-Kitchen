@@ -2211,7 +2211,7 @@ function viewToday(X){
     ${elm.length?`<p class="pre" style="margin:0 0 8px">饭前 30 分钟，滑榆皮粉用水调糊：${elm.map(d=>`${esc(d.dog.name.split(' ')[0])} 每次 <b class="num">${g1(d.elm/d.meals)}</b> g`).join('，')}</p>`:''}
     ${oneMeal ? '' : mealTable('早餐', D, 'bf')}
     ${mealTable(oneMeal?'全天一餐':'晚餐', D, 'dn')}
-    ${trains.length?`<div class="treat" style="margin:8px 0 0"><b>今天健身：晚餐已少给 ${trains.map(d=>`${esc(d.dog.name.split(' ')[0])} ${Math.round(d.trK)} kcal`).join('、')}</b>，留给训练零食。没用完不用补。</div>`:''}
+    ${trains.length?`<div class="treat" style="margin:8px 0 0"><b>今天健身：晚餐已少给 ${trains.map(d=>`${esc(d.dog.name.split(' ')[0])} ${Math.round(d.trK)} kcal`).join('、')}</b>${(()=>{ const I = treatInfo(); return I ? `，零食可以吃 ${trains.map(d=>`${esc(d.dog.name.split(' ')[0])} <b class="num">${Math.round(d.trK/I.perG)}</b> g`).join('、')}` : '，留给训练零食（在「做饭」页记下零食这一批，这里会显示克数）'; })()}。没用完不用补。</div>`:''}
     <div class="recrow">${D.map(d=>`<span>${esc(d.dog.name.split(' ')[0])}${d.L?` <span class="st ${d.L.fromPlan?'ok':'info'}">${d.L.fromPlan?'已按计划记录':'已记录（有改动）'}</span>`:''} <button class="btn small ghost" data-edit="${d.k}" data-date="${TODAY}">${d.L?'修改':'有变动'}</button></span>`).join('')}</div>
   </div></section>
   <section>
@@ -2268,6 +2268,33 @@ function prepStatus(X){
   return out;
 }
 // 鸡肝这一批：蒸之前的生重、打碎后的总重 → 换算成熟重，吃完前一直用
+// 健身零食：鸡胸肉（生重）+ 碳水（干重/生重）烤成脆片。记下这一批的用料和成品重，算出每克多少热量，
+// 健身日每只狗能吃多少克 = 晚餐让出来的热量 ÷ 每克热量
+const TREAT_CHICKEN = {name:'鸡胸肉（生）', p:22.5, f:2.6, c:0};   // USDA 171077 生鸡胸（去皮）
+function treatInfo(){
+  const t = ST.cfg.treatBatch; if(!t || !(t.meat>0) || !(t.total>0)) return null;
+  const kc = (p,f,c) => p*3.5 + f*8.5 + c*3.5;
+  const cm = t.meat/100, cf = F[t.carb] && t.carbG>0 ? t.carbG/100 : 0, Fc = F[t.carb] || {p:0,f:0,c:0};
+  const P = TREAT_CHICKEN.p*cm + (Fc.p||0)*cf, Fa = TREAT_CHICKEN.f*cm + (Fc.f||0)*cf, Cb = (Fc.c||0)*cf;
+  const kcal = kc(P, Fa, Cb);
+  return {t, kcal, perG: kcal/t.total, fatPct: Fa*8.5/kcal*100, protPct: P*3.5/kcal*100};
+}
+function treatCard(X){
+  const t = ST.cfg.treatBatch || {}, I = treatInfo();
+  const opts = CARBS.filter(carbOK).map(n=>`<option value="${esc(n)}"${n===(t.carb||'大米(干)')?' selected':''}>${esc(short(n))}（${wLbl(n)}）</option>`).join('');
+  const per = DOGS.map(k=>{ const kc = ((X.cfg.dogs[k]||ST.cfg.dogs[k]).kcal||0)*((ST.cfg.train&&ST.cfg.train.pct&&ST.cfg.train.pct[k])||0.1);
+    return `${DOGN[k]} <b class="num">${I?Math.round(kc/I.perG):'—'}</b> g（约 ${Math.round(kc)} kcal）`; }).join('，');
+  return `<section class="card batch"><div class="head"><h3>健身零食</h3><span class="note">鸡胸肉 + 碳水，烤成脆片</span></div>
+    <div class="field" style="border:0;padding:4px 0"><label class="l" for="tr_m">鸡胸肉<small>g，生重，去皮去筋</small></label><input id="tr_m" type="number" inputmode="decimal" min="0" step="1" value="${t.meat||''}" data-treatf="meat"></div>
+    <div class="field" style="border:0;padding:4px 0"><label class="l" for="tr_c">碳水<small>米粉按大米干重算</small></label><select id="tr_c" data-treatf="carb">${opts}</select></div>
+    <div class="field" style="border:0;padding:4px 0"><label class="l" for="tr_cg">碳水用量<small>g，${t.carb?wLbl(t.carb):'干重'}</small></label><input id="tr_cg" type="number" inputmode="decimal" min="0" step="1" value="${t.carbG||''}" data-treatf="carbG"></div>
+    <div class="field" style="border:0;padding:4px 0"><label class="l" for="tr_t">烤好后总重<small>g，放凉后称</small></label><input id="tr_t" type="number" inputmode="decimal" min="0" step="1" value="${t.total||''}" data-treatf="total"></div>
+    ${I ? `<p class="ratio" style="margin:8px 0 0">这一批共约 <b class="num">${Math.round(I.kcal)}</b> kcal，每克 <b class="num">${I.perG.toFixed(2)}</b> kcal（蛋白 ${I.protPct.toFixed(0)}%、脂肪 ${I.fatPct.toFixed(0)}% 热量）。${t.made?`${md(t.made)} 记下的。`:''}</p>
+      <p class="ratio" style="margin:4px 0 0">每次健身能吃：${per}。</p>`
+      : `<p class="note" style="margin:8px 0 0">填好鸡胸肉、碳水和烤好后的总重，这里会算出每次健身两只狗各能吃多少克。</p>`}
+    <p class="note" style="margin:6px 0 0">零食的热量从当天晚餐里扣（「今天吃什么」打开健身）。零食的营养不计入评估，量小影响不大。</p>
+  </section>`;
+}
 function clCard(X){
   const P = X.R.plan, n = C.CLIVER;
   const perDayRaw = DOGS.reduce((a,k)=>a+(P.dogs[k].days[TODAY].g[n]||0),0); if(!(perDayRaw>0)) return '';
@@ -2320,6 +2347,7 @@ function viewPrep(X){
   <section class="stack">
     ${potCard(X)}
     ${clCard(X)}
+    <details class="fold"><summary>健身零食：用料 → 成品，每次能吃多少</summary>${treatCard(X)}</details>
     ${cfg.organMode==='fd' ? '' : `<details class="fold"${open('organ')}><summary>${R.organType==='pork'?'猪肝块':'鸡内脏块'}：配方和做法</summary>${cards.organ}</details>`}
     ${has('fish') ? `<details class="fold"${open('fish')}><summary>鱼：生重 → 成品</summary>${cards.fish}</details>` : ''}
     ${has('veg') ? `<details class="fold"${open('veg')}><summary>${cfg.eggInVeg?'菜蛋泥':'菜泥'}：生重 → 成品</summary>${cards.veg}</details>` : ''}
@@ -3039,6 +3067,7 @@ document.addEventListener('change', e=>{
   if(e.target.dataset && e.target.dataset.import){ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) importData(f); return; }
   const t = e.target, d = t.dataset;
   if(d.carbsplitsel){ ST.cfg.carbSplit = parseFloat(t.value); saveCfg(); render(); return; }
+  if(d.treatf){ const tb = Object.assign({carb:'大米(干)'}, ST.cfg.treatBatch||{}); tb[d.treatf] = d.treatf==='carb' ? t.value : (parseFloat(t.value)||0); tb.made = TODAY; ST.cfg.treatBatch = tb; saveCfg(); render(); return; }
   if(d.cookdry || d.cooktot){
     const n = d.cookdry || d.cooktot, x = parseFloat(t.value);
     UI.cookDraft = UI.cookDraft||{}; const it = UI.cookDraft[n] = Object.assign({}, UI.cookDraft[n]);
