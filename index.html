@@ -362,6 +362,7 @@ function setFo(cfg){ SUPP.fo = FO_PRODUCTS[(cfg && cfg.foProduct)] || FO_PRODUCT
 const FO_RATIO = 5;            // ω-6 : ω-3 目标（主人定 5:1）
 const VE_PER_G_FISHOIL = 10;   // 每克鱼油额外需要的维E（保守实践建议）
 const VE_PER_G_VEGOIL = 0.8;   // 每克植物油（约 0.76 g 亚油酸）额外需要的维E，IU
+const POT_FAT_ROOM = 2;         // 整锅油最多让 Doctor 比他的脂肪下限高 2 g/1000 kcal
 const ZN_AVAIL_MIX = 1.0;      // 锌粉混在钙粉里：这份饮食几乎不含植酸，不再打折（原来按七成算，实际给到 2 倍）
 const OIL = '葡萄籽油';
 const OIL_STAGE = [0, 0.25, 0.5, 1];   // 葡萄籽油分档：不加 / ¼ / ½ / 全量
@@ -754,7 +755,7 @@ function planWeek(F, cfg, wsDate, opt){
   }
   // 葡萄籽油（拌在米饭里）。整锅一个比例（每克干碳水几克油），比例取下面两者较大的：
   //  ① 亚油酸：每种肉都算缺口，取平均（身体能存，轮换吃几周平均够），乘分档（¼/½/全量）
-  //  ② “跟锅走”的狗（oilExtra 不为 true）的脂肪下限 fatMinG：按这周的肉算差多少油（Missy 分步提到 15、18 g）
+  //  ② “跟锅走”的狗（oilExtra 不为 true）的脂肪下限 fatMinG：按这周的肉算差多少油（Missy 分步提到 15、18、21、24 g；超过 Doctor 能跟的量时她单独滴）
   // 单独加油的狗（oilExtra:true，Doctor）：米饭里吃到的油之外，脂肪还差的单独加（同样乘分档）
   const stage = OIL_STAGE[cfg.oilStage||0] || 0;
   if(!opt.oilFixed && F[OIL]){
@@ -775,9 +776,19 @@ function planWeek(F, cfg, wsDate, opt){
       const d0 = dryIn(P0,k); if(!(d0>0)) continue;
       const g = Math.max(0, dog.fatMinG*dog.kcal/1000 - avgF(P0,k))/(oi.f/100)*1.04;
       if(g/d0 > ratio){ ratio = g/d0; potFat = true; } }
-    const inRice = {}, extra = {doctor:0, missy:0}, O = {};
+    const inRice = {}, extra = {doctor:0, missy:0}, O = {}, own = {doctor:0, missy:0};
     const drop = cfg.oilMode==='drop';
-    for(const k of ['doctor','missy']){ const d0 = dryIn(P0,k), rK = (drop && cfg.dogs[k].oilExtra) ? ratioLA*stage : ratio; inRice[k] = Math.round((d0>0 ? rK*d0 : noDry[k]*stage)*100)/100; }
+    // 整锅的油不能把单独加油的狗（Doctor，控脂）带高：锅里的油最多让他到 fatMinG+2（18→20 g/1000 kcal，约 18% 热量）。
+    // 跟锅走的狗（Missy）脂肪下限要的油超过这个量时，超出的部分她单独滴（own）
+    let potR = ratio;
+    if(!drop) for(const k of ['doctor','missy']){ const dog = cfg.dogs[k]; if(!dog.fatMinG || !dog.oilExtra) continue;
+      const d0 = dryIn(P0,k); if(!(d0>0)) continue;
+      const fMax = Math.min(dog.fatMaxG||Infinity, dog.fatMinG + POT_FAT_ROOM);
+      const capR = Math.max(0, fMax*dog.kcal/1000 - avgF(P0,k))/(oi.f/100)/d0;
+      potR = Math.min(potR, Math.max(ratioLA*stage, capR)); }
+    for(const k of ['doctor','missy']){ const d0 = dryIn(P0,k), ex = cfg.dogs[k].oilExtra, rK = (drop && ex) ? ratioLA*stage : ex ? potR : ratio;
+      inRice[k] = Math.round((d0>0 ? rK*d0 : noDry[k]*stage)*100)/100;
+      if(!ex && !drop && d0>0 && ratio>potR){ own[k] = Math.round((ratio-potR)*d0*20)/20; inRice[k] = Math.round(potR*d0*100)/100 + own[k]; } }
     // 单独加油的狗：米饭里的油之外还差的脂肪
     if(['doctor','missy'].some(k=>cfg.dogs[k].fatMinG && cfg.dogs[k].oilExtra)){
       const P1 = planWeek(F, cfg, wsDate, Object.assign({}, opt, {oilFixed:inRice}));
@@ -790,12 +801,13 @@ function planWeek(F, cfg, wsDate, opt){
     const P = planWeek(F, cfg, wsDate, Object.assign({}, opt, {oilFixed:O}));
     // 整锅比例按最终计划算（油有热量，米饭会少一点点）：以只吃米饭里油的狗为准
     const plain = ['doctor','missy'].filter(k=>!(cfg.dogs[k].fatMinG && cfg.dogs[k].oilExtra) && dryIn(P,k)>0);
-    const perG = plain.length ? Math.max(...plain.map(k=>O[k]/dryIn(P,k))) : ratio;
+    const perG = plain.length ? Math.max(...plain.map(k=>(O[k]-own[k])/dryIn(P,k))) : potR;
     for(const k of ['doctor','missy']){
       if(!(cfg.dogs[k].fatMinG && cfg.dogs[k].oilExtra) || !(dryIn(P,k)>0)){ inRice[k] = O[k]; extra[k] = 0; continue; }
       inRice[k] = Math.min(O[k], perG*dryIn(P,k)); extra[k] = Math.max(0, O[k]-inRice[k]); if(extra[k]<0.03){ inRice[k] = O[k]; extra[k] = 0; } }
+    for(const k of ['doctor','missy']) if(own[k]>0){ extra[k] = own[k]; inRice[k] = Math.max(0, Math.round((O[k]-own[k])*100)/100); }
     if(drop){ for(const k of ['doctor','missy']){ extra[k] = O[k]; inRice[k] = 0; } }
-    P.oil = {perDay:O, stage:cfg.oilStage||0, perGramDryCarb: drop ? 0 : perG, drop, inRice, extra, potFat, laRatio: ratioLA*stage}; return P;
+    P.oil = {perDay:O, stage:cfg.oilStage||0, perGramDryCarb: drop ? 0 : perG, drop, inRice, extra, own, potFat, laRatio: ratioLA*stage}; return P;
   }
   if(cfg.organMode==='fd' && !opt.fdFixed){
     const zero2 = {liver:{doctor:0,missy:0}, blood:{doctor:0,missy:0}, cliver:{doctor:0,missy:0}};
@@ -1646,6 +1658,8 @@ function mergeCfg(saved){
     if(C.GLUTEN.test(out.carb2||'')) out.carb2 = ''; }
   if(!out.v7){ out.v7 = true; for(const k of DOGS) out.dogs[k].foAuto = true; out.dogs.doctor.foMax = 4; out.dogs.missy.foMax = 1; out.dogs.missy.foMaxAt = C.ds(new Date()); }
   if(!out.v6){ out.v6 = true; for(const k of DOGS) out.dogs[k].boxExtras = {}; }
+  // 2026-11-12：蛋白目标固定 45%（手机里留着以前改的 40%，界面上已经没有地方改）
+  if(!out.p45){ out.p45 = true; out.pctP = 45; for(const k of DOGS) out.dogs[k].pctP = 45; }
   return out;
 }
 function lsGet(){ try{ return JSON.parse(localStorage.getItem('dmk2')) }catch(e){ return null } }
@@ -1916,7 +1930,7 @@ function alerts(X){
   // Missy 脂肪：亚油酸全量一周后提到 15 g，再一周提到 18 g（一次只改一样）
   const mf = ST.cfg.dogs.missy.fatMinG||null, mfSince = ST.cfg.missyFatAt ? (C.pd(TODAY)-C.pd(ST.cfg.missyFatAt))/86400000 : 0;
   if(os===3 && since>=7 && !mf && !ST.cfg.missyFatSnooze) later({cls:'info', html:`<b>Missy 的脂肪可以往上提了</b><br>亚油酸的油全量已经一周。下一步把她的脂肪提到 15 g/1000 kcal：整锅米饭会多拌一点油。便便变软就退回。`, act:`<button class="btn small ghost" data-go="prep">去做饭页调</button>`});
-  if(mf===15 && mfSince>=7) later({cls:'info', html:`<b>Missy 脂肪 15 g 已经 ${Math.floor(mfSince)} 天</b><br>便便正常的话，提到 18 g（目标）。`, act:`<button class="btn small ghost" data-go="prep">去做饭页调</button>`});
+  if(mf===15 && mfSince>=7) later({cls:'info', html:`<b>Missy 脂肪 15 g 已经 ${Math.floor(mfSince)} 天</b><br>便便正常的话，提到 18 g。`, act:`<button class="btn small ghost" data-go="prep">去做饭页调</button>`});
   // Missy 的鱼油：脂肪到 18 g 两周后从每周 1 粒开始，再过两周加到目标
   const mfo = ST.cfg.dogs.missy.foPerWeek||0, foTarget = (ST.cfg.foProduct||'now')==='viva' ? 2 : 3;
   const foSince = ST.cfg.missyFoAt ? (C.pd(TODAY)-C.pd(ST.cfg.missyFoAt))/86400000 : 0;
@@ -2052,8 +2066,8 @@ function potCard(X){
   const oilSeg = `<div class="oilbox" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--line)">
     <div class="field" style="border:0;padding:4px 0"><span class="l">葡萄籽油<small>补亚油酸${ST.cfg.oilStageAt?`；${md(ST.cfg.oilStageAt)} 起是这一档`:''}。每档至少一周，便便变软就停在这一档</small></span>
       <span class="seg" role="group">${['不加','¼','½','全量'].map((t,i)=>`<button type="button" data-oilstage="${i}" aria-pressed="${os===i}">${t}</button>`).join('')}</span></div>
-    <div class="field" style="border:0;padding:4px 0"><span class="l">Missy 脂肪下限<small>g/1000 kcal；油全量稳定后先 15，再 18，便便变软退回${ST.cfg.missyFatAt?`；${md(ST.cfg.missyFatAt)} 起`:''}</small></span>
-      <span class="seg" role="group">${[[null,'不设'],[15,'15'],[18,'18']].map(([v,t])=>`<button type="button" data-missyfat="${v==null?'':v}" aria-pressed="${(ST.cfg.dogs.missy.fatMinG||null)===v}">${t}</button>`).join('')}</span></div>
+    <div class="field" style="border:0;padding:4px 0"><span class="l">Missy 脂肪下限<small>g/1000 kcal；油全量稳定后先 15，再 18，之后可以到 21、24。每档至少一周，便便变软退回${ST.cfg.missyFatAt?`；${md(ST.cfg.missyFatAt)} 起`:''}</small></span>
+      <span class="seg" role="group">${[[null,'不设'],[15,'15'],[18,'18'],[21,'21'],[24,'24']].map(([v,t])=>`<button type="button" data-missyfat="${v==null?'':v}" aria-pressed="${(ST.cfg.dogs.missy.fatMinG||null)===v}">${t}</button>`).join('')}</span></div>
     ${oilOn ? `<div class="field" style="border:0;padding:4px 0"><span class="l">怎么给<small>${drop?'每餐滴在饭上，早晚各一半；量在「今天吃什么」页':'整锅拌好，两只狗跟着米饭吃'}</small></span>
       <span class="seg" role="group"><button type="button" data-oilmode="mix" aria-pressed="${!drop}">拌进锅里</button><button type="button" data-oilmode="drop" aria-pressed="${drop}">另外滴</button></span></div>` : ''}
   </div>`;
@@ -2094,9 +2108,13 @@ function mealPlan(P, k, date, nMeals){
   for(const n of mc){ bf[n] = g0(n)*frac(n); dn[n] = Math.max(0, (day.g[n]||0) - bf[n]*(meals-1)); }
   const oilEach = meals>1 ? oilEx/meals : oilEx;
   const sum2 = (o, f) => mc.reduce((a,n)=>a+f(n)*o[n],0);
-  const bfK = sum2(bf,kc) + oilIn*8.84*sc + oilEach*8.84 + (meals>1?Bk:0), bfF = sum2(bf,ft) + oilIn*sc + oilEach + (meals>1?Bf:0);
+  let bfK = sum2(bf,kc) + oilIn*8.84*sc + oilEach*8.84 + (meals>1?Bk:0), bfF = sum2(bf,ft) + oilIn*sc + oilEach + (meals>1?Bf:0);
   const rIn = Math.max(0, 1 - sc*(meals-1));
-  const dnK = sum2(dn,kc) + oilIn*8.84*rIn + oilEach*8.84 + Ek + (meals>1?0:Bk), dnF = sum2(dn,ft) + oilIn*rIn + oilEach + Ef + (meals>1?0:Bf);
+  let dnK = sum2(dn,kc) + oilIn*8.84*rIn + oilEach*8.84 + Ek + (meals>1?0:Bk), dnF = sum2(dn,ft) + oilIn*rIn + oilEach + Ef + (meals>1?0:Bf);
+  // 上面是按包装标签热量逐样加的，比全天 NRC 热量（按纤维算消化率，「现在这样吃」和顶部用的口径）低几个百分点。
+  // 按比例换成 NRC 口径，几餐加起来正好等于全天热量
+  const kTot = bfK*(meals-1) + dnK, kNRC = day.tAll && day.tAll.kcal;
+  if(kTot>0 && kNRC>0){ const r = kNRC/kTot; bfK *= r; dnK *= r; }
   return {meals, s:sc, sm, sc, bf, dn, bfK, dnK, bfF, dnF, mc, oilEx, oilIn, oilEach};
 }
 // 一只狗一天的喂食内容（按餐分好），给「今天吃什么」的表格用
@@ -3115,5 +3133,4 @@ window.addEventListener('error', ev=>{ try{ $('#toastHost').innerHTML = `<div cl
 render();
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
-
 </body></html>
