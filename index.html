@@ -299,9 +299,16 @@ const AAFCO = {f:13.8,ca:1250,ph:1000,mg:150,k:1500,na:200,cl:300,fe:10,zn:20,cu
 const AAMAX = {ca:6250,ph:4000,vita_retinol:53300,vitd:750,i:1400,se:500,epadha:2800};
 const SOFT = new Set(['ala','epadha']);   // 只给建议，不判不达标
 const MARGIN = 1.3;          // 目标倍数（数据本身±30-50%波动）
-// 镁：AAFCO/NRC 推荐量本身已含余量，肉里的镁吸收好，目标取 1.0（用菜补，菜多了纤维会上来）
-// 钙、磷、碘由药盒按周精确给，AAFCO 本身已比 NRC 高，目标取 1.0
-const TARGET = {mg:1.0, ca:1.0, ph:1.0, i:1.0, f:1.0};
+// 余量按营养素分别定（2026-11-24）：推荐量取 AAFCO 和 NRC 较高者，AAFCO 已比 NRC 高的不再多留；
+// 怕热、会氧化、数据很不准的多留。按体重口径始终 1.0 倍（mbwDay 里除掉了）。
+//   1.0：钙 磷 镁 碘（药盒精确给 / AAFCO 已高）、钾（AAFCO 高 50%）、铁（高 33%，血红素铁吸收好）、烟酸（稳定，色氨酸转化未计）
+//   1.1：钠 氯、铜（ALT 偏高，铜在肝蓄积）、锰、维A（肝含量变化大但不宜多）、泛酸、胆碱（甜菜碱未计）、亚油酸
+//   1.2：锌（钙多影响吸收）、维D（含量差异大，上限窄）、B2 B6 B12
+//   1.3：维E（氧化，需要量随油变）、B1（最怕热）、叶酸（最易损失）、硒（随饲料差 50%）
+const TARGET = {mg:1.0, ca:1.0, ph:1.0, i:1.0, f:1.0, k:1.0, fe:1.0, nia:1.0,
+  na:1.1, cl:1.1, cu:1.1, mn:1.1, vita_retinol:1.1, pa:1.1, cho:1.1, la:1.1,
+  zn:1.2, vitd:1.2, b2:1.2, b6:1.2, b12:1.2,
+  vite:1.3, b1:1.3, fol:1.3, se:1.3};
 const tgt = k => TARGET[k]!==undefined ? TARGET[k] : MARGIN;
 // 吸收率折算：菠菜草酸结合钙镁，且需焯水弃汤
 const AVAIL = {'菠菜(生)':{mg:0.5, ca:0.1}, '小米(干)':{zn:0.7, mg:0.8}};   // 小米含植酸：本身的锌、镁打折
@@ -385,7 +392,7 @@ const POT_FAT_ROOM = 2;         // 整锅油最多让 Doctor 比他的脂肪下�
 const ZN_AVAIL_MIX = 1.0;      // 锌粉混在钙粉里：这份饮食几乎不含植酸，不再打折（原来按七成算，实际给到 2 倍）
 const OIL = '葡萄籽油';
 const OIL_STAGE = [0, 0.25, 0.5, 1];   // 葡萄籽油分档：不加 / ¼ / ½ / 全量
-const LA_TARGET = 1.15;
+const LA_TARGET = 1.1;     // = TARGET.la
 
 // 星期：0=周日 … 6=周六。自然周从周六开始。
 const FISH_DAYS = new Set([6,1,3,5]);   // Doctor 吃鱼块的日子（隔天）
@@ -670,7 +677,7 @@ function vegPer100(F, mix){
 
 // 鱼：按维D 达到 1.3 倍定克数（扣掉蛋、肉、内脏已有的维D）
 function fishGrams(F, cfg, dogKey, vdOtherWeek){
-  const dog=cfg.dogs[dogKey], need = needFor('vitd', dog.kcal*7, dog)*MARGIN;
+  const dog=cfg.dogs[dogKey], need = needFor('vitd', dog.kcal*7, dog)*tgt('vitd');
   const gWeek = Math.max(0,(need - vdOtherWeek))/F[cfg.fish].vitd*100;
   return gWeek/7;
 }
@@ -705,7 +712,7 @@ function fdDoses(F, cfg, P0){
     for(let it=0; it<3; it++){
       // 冻干牛肝：扣掉鸡肝已经给的
       if(L && !cfg.noOrgan){
-        const g = n => Lp[n]>0 ? Math.max(0, (n==='cu' && tight ? 1.05 : MARGIN)*need(n) - avg(n) - (Cp?Cp[n]*gC/100:0))/Lp[n]*100 : 0;
+        const g = n => Lp[n]>0 ? Math.max(0, (n==='cu' && tight ? 1.05 : tgt(n))*need(n) - avg(n) - (Cp?Cp[n]*gC/100:0))/Lp[n]*100 : 0;
         let x = Math.max(g('cu'), g('vita_retinol'), g('b12'));
         const gCap = Math.max(0, capCu0 - (Cp?Cp.cu*gC/100:0))/(Lp.cu*(tight ? 1 : FD_LIVER_CU_WORST))*100;
         gL = Math.min(tight ? Math.ceil(x*2-1e-9)/2 : r05(x), f05(gCap));   // 铜收紧的狗目标只有 1.05 倍，向上取到 0.5 g，免得四舍五入后低于推荐量
@@ -721,7 +728,7 @@ function fdDoses(F, cfg, P0){
     let gB = 0;
     if(B && !cfg.noBlood){
       const fe1 = avg('fe') + Lp.fe*gL/100 + (Cp?Cp.fe*gC/100:0);
-      gB = Math.max(0, MARGIN*need('fe') - fe1)/Bp.fe*100;
+      gB = Math.max(0, tgt('fe')*need('fe') - fe1)/Bp.fe*100;
       gB = Math.min(r05(gB), f05(0.05*kc/B.kcal*100));
       if(cfg.bloodScale!=null && cfg.bloodScale<1) gB = r05(gB*cfg.bloodScale);
     }
@@ -875,7 +882,7 @@ function planWeek(F, cfg, wsDate, opt){
         const want = cfgFull.noOrgan ? 0 : (cfgFull.dogs[k].cliver||0); if(!(want>0)) continue;
         const ds = Object.values(P.dogs[k].days).map(r=>r.tAll), kc = cfg.dogs[k].kcal;
         const avgN = n => ds.reduce((a,t)=>a+t[n],0)/ds.length, needN = n => needFor(n, kc, cfg.dogs[k], 1);
-        const add = Math.max(0, (needN('cho')*1.1 - avgN('cho'))/Cp.cho, (needN('fol')*MARGIN - avgN('fol'))/Cp.fol, (needN('b12')*MARGIN - avgN('b12'))/Cp.b12)*100;
+        const add = Math.max(0, (needN('cho')*tgt('cho') - avgN('cho'))/Cp.cho, (needN('fol')*tgt('fol') - avgN('fol'))/Cp.fol, (needN('b12')*tgt('b12') - avgN('b12'))/Cp.b12)*100;
         if(add < 0.5) continue;
         const aRoom = Math.max(0, 0.5*AAMAX.vita_retinol*kc/1000 - Math.max(...ds.map(t=>t.vita_retinol)))/Cp.vita_retinol*100;
         const g2 = Math.min(D.cliver[k] + Math.ceil(Math.min(add, aRoom)), Math.max(D.cliver[k], Math.floor(CL_KCAL_MAX*kc/F[CLIVER].kcal*100)));
@@ -1024,21 +1031,21 @@ function planWeek(F, cfg, wsDate, opt){
     const caPerDay = Math.ceil(Math.max(0,caNeed)/7/SUPP.ca.mgPerG*20)/20;     // 0.05g 一档
     const so = cfg.suppOff ? 0 : 1;
     // 锌：胶囊拆开和这一周的钙粉混匀，平均分 7 天；吸收按七成算
-    const znCaps = so*maxOver(w=>Math.max(0, Math.ceil((needFor('zn',kcW,dog)*MARGIN - w.zn)/(SUPP.zn.mgPerCap*ZN_AVAIL_MIX) - 0.25)));
+    const znCaps = so*maxOver(w=>Math.max(0, Math.ceil((needFor('zn',kcW,dog)*tgt('zn') - w.zn)/(SUPP.zn.mgPerCap*ZN_AVAIL_MIX) - 0.25)));
     const znTabs = 0;
     // 盐：钠、氯补到 1.3 倍，也混进钙粉（一周总量，0.05 g 一档）
-    const saltW = so*maxOver(w=>Math.ceil(Math.max(0, (needFor('na',kcW,dog)*MARGIN - w.na)/SUPP.salt.naPerG, (needFor('cl',kcW,dog)*MARGIN - w.cl)/SUPP.salt.clPerG)/0.05 - 1e-9)*0.05);
+    const saltW = so*maxOver(w=>Math.ceil(Math.max(0, (needFor('na',kcW,dog)*tgt('na') - w.na)/SUPP.salt.naPerG, (needFor('cl',kcW,dog)*tgt('cl') - w.cl)/SUPP.salt.clPerG)/0.05 - 1e-9)*0.05);
     // 复合维生素B：整片，按 B1/B2/B6/烟酸/泛酸里缺得最多的算，固定在某几天给
-    const vbTabs = so*maxOver(w=>Math.max(...['b1','b2'].map(k=>Math.ceil(Math.max(0, needFor(k,kcW,dog)*MARGIN - w[k])/SUPP.vb[k] - 1e-9))));
+    const vbTabs = so*maxOver(w=>Math.max(...['b1','b2'].map(k=>Math.ceil(Math.max(0, needFor(k,kcW,dog)*tgt(k) - w[k])/SUPP.vb[k] - 1e-9))));
     // 碘：整片。至少够需要量，目标 1.3 倍取最接近的整片（不向上凑），落在约 300–400 μg/1000 kcal
     // 镁粉：按最缺的那种肉算一周要多少克，乘这只狗的档位（先半量、再全量），称到 0.1 g
     const mgP = MG_PRODUCTS[cfg.mgProduct] || MG_PRODUCTS.now_pow;
     const mgW = so*Math.round(maxOver(w=>Math.max(0, needFor('mg',kcW,dog)*tgt('mg') - w.mg)/SUPP.mg.mgPerG)*(dog.mgStage||0)/mgP.step)*mgP.step;
     const iTabs  = so*maxOver(w=>iodineTabs(needFor('i',kcW,dog), w.i, AAFCO.i*kcW/1000));
-    const veCaps = so*maxOver(w=>Math.ceil((veNeed(kcW,foG*7,w.oilg,dog)*MARGIN - w.vite)/SUPP.ve.iuPerCap));
+    const veCaps = so*maxOver(w=>Math.ceil((veNeed(kcW,foG*7,w.oilg,dog)*tgt('vite') - w.vite)/SUPP.ve.iuPerCap));
     // 维D：食物（主要是鱼、蛋）不够需要量时才补，按 1.3 倍补到整粒；吃鱼的狗一般是 0
     const vdNeed = needFor('vitd',kcW,dog);
-    const vdCaps = so*maxOver(w=> w.vitd < vdNeed ? Math.ceil((vdNeed*MARGIN - w.vitd)/SUPP.vd.iuPerCap) : 0);
+    const vdCaps = so*maxOver(w=> w.vitd < vdNeed ? Math.ceil((vdNeed*tgt('vitd') - w.vitd)/SUPP.vd.iuPerCap) : 0);
     const box = {};
     days.forEach(d=>box[d]={caG:caPerDay, iTab:0, znTab:0, znMg:znCaps*SUPP.zn.mgPerCap/7, saltG:saltW/7, mgG:mgW/7, vbTab:0, veCap:0, vdCap:0, tauCap:(dog.tauPerDay||0), foCap:foOn(d), ext:Object.assign({}, dog.boxExtras||{})});
     spreadEven(days, box, 'iTab', iTabs);
@@ -1071,7 +1078,7 @@ function fdPerDay(F, cfg, wsDate){
   const Pp = planWeek(F,cfg,wsDate,{type:'pork'});
   // 以 Missy 为准算每千卡的剂量（她有关注线），Doctor 同比例
   const m='missy', need=needFor('cu',kM,cfg.dogs.missy,1);
-  const want = Math.max(0, 2*MARGIN*need - avgCu(Pc,m) - avgCu(Pp,m));
+  const want = Math.max(0, 2*tgt('cu')*need - avgCu(Pc,m) - avgCu(Pp,m));
   const cap  = Math.max(0, cuLim(cfg.dogs.missy)*kM/1000 - maxCu(Pc,m));
   const gM = Math.min(want,cap)/FD.cu*100;
   return {doctor:gM*kD/kM, missy:gM, capped: want>cap};
@@ -1456,7 +1463,7 @@ function meatAdvice(F, cfg, logs, key, today, cache){
     const feOn = (c,cache,d)=>{const w=weekStart(d);return (cache[w]||(cache[w]=planWeek(F,c,w))).dogs[key].days[d].tAll.fe};
     const future = monthDays.filter(d=>d>=today && !(logs[d]&&logs[d][key]));
     const A = future.map(d=>feOn(cfg,pc,d)), B = future.map(d=>feOn(cAlt,pa,d));
-    const past = M.act.fe, target = MARGIN*needFor('fe',kc,dogM,M.nDays);
+    const past = M.act.fe, target = tgt('fe')*needFor('fe',kc,dogM,M.nDays);
     let k=-1;
     for(let x=0;x<=future.length;x++){
       let s=past; for(let i=0;i<future.length;i++) s += i<x ? A[i] : B[i];
@@ -1481,7 +1488,7 @@ function boxAdjust(F, cfg, logs, key, ws, today, plan){
   });
   // t = 已吃的(含已给补充剂) + 剩余天的食物(不含补充剂)
   const restBox = rest.reduce((a,d)=>{const b=plan.dogs[key].box[d];a.zn+=b.znTab;a.i+=b.iTab;return a},{zn:0,i:0});
-  const znNeed = Math.max(0,Math.ceil((needFor('zn',kcW)*MARGIN - t.zn)/SUPP.zn.mgPerTab));
+  const znNeed = Math.max(0,Math.ceil((needFor('zn',kcW)*tgt('zn') - t.zn)/SUPP.zn.mgPerTab));
   const iNeed  = iodineTabs(needFor('i',kcW), t.i);
   const notes=[];
   if(restBox.zn>0 && znNeed!==restBox.zn) notes.push({k:'zn', boxed:restBox.zn, need:znNeed});   // 旧的整片锌；现在锌混在钙粉里，不再中途调
