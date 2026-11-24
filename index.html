@@ -372,7 +372,15 @@ const ADD_CARBS = ['红薯(生)','芋头(生)','土豆(生)','山药(生)'];
 // 大肠负荷 = 纤维 + 抗性淀粉（估算，g/100 g，按食材的称重口径）。现做现吃的数；冷藏回生会更多
 const RS_EST = {'大米(干)':0.4, '小米(干)':1.5, '红薯(生)':0.6, '芋头(生)':0.8, '土豆(生)':1.0, '山药(生)':0.8, '紫薯(生)':0.6, '南瓜(生)':0.1};
 const COLON_STEP = {doctor:1, missy:0.5};   // 每次最多加多少（g/天）
-function colonOf(F, g){ let fib = 0, rs = 0; for(const n in g){ const d = F[n]; if(!d) continue; fib += (d.fiber||0)*g[n]/100; rs += (RS_EST[n]||0)*g[n]/100; } return {fib, rs, tot:fib+rs}; }
+// rsMul：米饭冷藏回生（这锅煮好第 2 天 ×1.5，第 3 天起 ×2），只乘在主碳水上
+function colonOf(F, g, rsMul, mainCarb){ let fib = 0, rs = 0; for(const n in g){ const d = F[n]; if(!d) continue; fib += (d.fiber||0)*g[n]/100; rs += (RS_EST[n]||0)*g[n]/100*(n===mainCarb ? (rsMul||1) : 1); } return {fib, rs, tot:fib+rs}; }
+function colonPerG(F, n){ const d = F[n]; return d ? ((d.fiber||0) + (RS_EST[n]||0))/100 : 0; }
+// 每只狗的大肠负荷上限：记下的耐受量 + 一步
+function colonLimit(cfg, k){ const ok = cfg.dogs[k].colonOk; return ok!=null ? ok + COLON_STEP[k] : null; }
+// 滑榆皮按计划逐步变（elmRamp：from → to，从 start 开始每 every 天变 step g）
+function elmAt(dog, d){ const R = dog.elmRamp, to = dog.elmG||0; if(!R || !R.start) return to;
+  if(d < R.start) return R.from; const n = Math.floor(Math.round((pd(d)-pd(R.start))/864e5)/(R.every||2)) + 1;
+  const v = R.from + Math.sign(to-R.from)*(R.step||1)*n; return to>=R.from ? Math.min(to, v) : Math.max(to, v); }
 const POT_FAT_ROOM = 2;         // 整锅油最多让 Doctor 比他的脂肪下限高 2 g/1000 kcal
 const ZN_AVAIL_MIX = 1.0;      // 锌粉混在钙粉里：这份饮食几乎不含植酸，不再打折（原来按七成算，实际给到 2 倍）
 const OIL = '葡萄籽油';
@@ -754,6 +762,17 @@ function weekWithMeat(F, cfg, rows, key, meat, days){
 function suppMeats(F, cfg){ return [...new Set([cfg.meat].concat(cfg.caMeats || Object.keys(F).filter(n=>F[n].cat==='protein')))].filter(n=>F[n]); }
 function planWeek(F, cfg, wsDate, opt){
   opt = opt||{}; setFo(cfg);
+  // 大肠负荷上限（2026-11-24）：先照常算一遍，哪天超了「耐受量 + 一步」，就把那天的加餐碳水压下来再算
+  if(!opt.colonDone && ['doctor','missy'].some(k=>colonLimit(cfg,k)!=null && (cfg.dogs[k].addG||0)>0)){
+    const P1 = planWeek(F, cfg, wsDate, Object.assign({}, opt, {colonDone:true}));
+    const cap = {}; let any = false;
+    for(const k of ['doctor','missy']){ const lim = colonLimit(cfg,k); if(lim==null) continue;
+      for(const d in P1.dogs[k].days){ const r = P1.dogs[k].days[d]; if(!(r.addG>0) || !r.colon) continue;
+        const over = r.colon.tot - lim; if(over <= 0.02) continue;
+        const per = colonPerG(F, r.addN); if(!(per>0)) continue;
+        (cap[k] = cap[k]||{})[d] = Math.max(0, Math.floor(r.addG - over/per)); any = true; } }
+    return any ? planWeek(F, cfg, wsDate, Object.assign({}, opt, {colonDone:true, addCap:cap})) : P1;
+  }
   if(!opt.boxFrom && cfg.boxLock && cfg.boxLock[wsDate]) return planWeek(F, cfg, wsDate, Object.assign({}, opt, {boxFrom:cfg.boxLock[wsDate]}));
   // 恢复期：药盒是按周提前装好的，所以整格照常给——补充剂按正常热量那份算
   if(!opt.boxFrom && ['doctor','missy'].some(k=>cfg.dogs[k].riceOnly)){
@@ -877,13 +896,16 @@ function planWeek(F, cfg, wsDate, opt){
   const bloodG = fdMode ? opt.fdFixed.blood : {doctor:0,missy:0};
   const clG = fdMode && opt.fdFixed.cliver ? opt.fdFixed.cliver : {doctor:0,missy:0};
   const oilG = opt.oilFixed || {doctor:0,missy:0};
-  const elmOf = k => F[ELM] ? (cfg.dogs[k].elmG||0) : 0;      // 滑榆皮：饭前给，计入热量和纤维
+  const elmOf = (k, d) => F[ELM] ? elmAt(cfg.dogs[k], d) : 0;      // 滑榆皮：饭前给，计入热量和纤维
   const psyOf = k => F[PSY] ? (cfg.dogs[k].psyG||0) : 0;      // 洋车前子壳粉（2026-11-17）：和滑榆皮一起饭前给
   // 牛心（熟重，每天固定克数，晚餐给；2026-11-16 加）：低脂、胆碱和铁多，但铜比瘦肉高，Missy 每天不超过 HEART_MAX
   const heartOf = k => (F[HEART] && !cfg.noOrgan) ? Math.min(cfg.dogs[k].heartG||0, HEART_MAX[k]||0) : 0;
   // 加餐碳水（每只狗自己的克数）：恢复期 −20% 时暂停
   const addN = (cfg.addCarb && F[cfg.addCarb] && cfg.addCarb!==cfg.carb) ? cfg.addCarb : '';
-  const addOf = k => (addN && cfg.dogs[k].status!=='r20') ? (cfg.dogs[k].addG||0) : 0;
+  const addBase = k => (addN && cfg.dogs[k].status!=='r20') ? (cfg.dogs[k].addG||0) : 0;
+  const addOf = (k, d) => { const cap = opt.addCap && opt.addCap[k] && opt.addCap[k][d]; return cap!=null ? Math.min(addBase(k), cap) : addBase(k); };
+  // 米饭放了几天（按「做饭」页记的这一锅）
+  const ck = cfg.cook && cfg.cook[cfg.carb], riceMul = d => { if(!(ck && ck.made)) return 1; const a = Math.round((pd(d)-pd(ck.made))/864e5); return a<=0 ? 1 : a===1 ? 1.5 : 2; };
   const V = vegPer100(F,cfg.veg), vegTot=Object.values(cfg.veg).reduce((a,b)=>a+b,0)||1;
   const out = {weekStart:wsDate, organType:type, dogs:{}};
 
@@ -904,10 +926,10 @@ function planWeek(F, cfg, wsDate, opt){
       if(bloodG[key]) addFood(t,F,cfg.organ.blood,bloodG[key]);
       if(clG[key]) addFood(t,F,CLIVER,clG[key]);
       if(oilG[key]) addFood(t,F,OIL,oilG[key]);
-      if(elmOf(key)) addFood(t,F,ELM,elmOf(key));
+      if(elmOf(key,d)) addFood(t,F,ELM,elmOf(key,d));
       if(psyOf(key)) addFood(t,F,PSY,psyOf(key));
       if(heartOf(key)) addFood(t,F,HEART,heartOf(key));
-      if(addOf(key)) addFood(t,F,addN,addOf(key));
+      if(addOf(key,d)) addFood(t,F,addN,addOf(key,d));
       addSupp(t,{foCap:foOn(d)});
       // 菜泥按纤维余量（先假设碳水贡献，下面迭代）
       return {d,t};
@@ -958,10 +980,10 @@ function planWeek(F, cfg, wsDate, opt){
         if(bloodG[key]) put(cfg.organ.blood, bloodG[key]);
         if(clG[key]) put(CLIVER, clG[key]);
         if(oilG[key]) put(OIL, oilG[key]);
-        if(elmOf(key)) put(ELM, elmOf(key));
+        if(elmOf(key,d)) put(ELM, elmOf(key,d));
         if(psyOf(key)) put(PSY, psyOf(key));
         if(heartOf(key)) put(HEART, heartOf(key));
-        if(addOf(key)) put(addN, addOf(key));
+        if(addOf(key,d)) put(addN, addOf(key,d));
         for(const n in cfg.veg) put(n, vegG*cfg.veg[n]/vegTot);
         addSupp(t,{foCap:foOn(d)});
         // 健身日（2026-11-24 改）：零食（鸡胸 + 少量米）算进当天的营养，肉和米饭按「全天含零食」重新解 →
@@ -973,7 +995,7 @@ function planWeek(F, cfg, wsDate, opt){
         put(cfg.meat, sol.gM); for(const [n,fr] of parts) put(n, sol.gC*fr);
         finalize(t);
         const base = null;
-        rows[d] = {g, t, addN: addOf(key) ? addN : '', addG: addOf(key), colon: colonOf(F, g), trK, ok:sol.ok, organG:organ.organG, fishG, vegG, fdG:fdG[key], base, pctP:sol.pctP, fatPct:sol.fatPct, fatG:sol.fatG, fatOver:!!sol.fatOver, oilG:oilG[key]};
+        rows[d] = {g, t, addN: addOf(key,d) ? addN : '', addG: addOf(key,d), addCut: addBase(key) - addOf(key,d), colon: colonOf(F, g, riceMul(d), cfg.carb), trK, ok:sol.ok, organG:organ.organG, fishG, vegG, fdG:fdG[key], base, pctP:sol.pctP, fatPct:sol.fatPct, fatG:sol.fatG, fatOver:!!sol.fatOver, oilG:oilG[key]};
         wk = sumT(wk,t);
       });
       return {rows, wk};
@@ -1503,7 +1525,7 @@ function batchSheet(F, cfg, wsDate){
   };
 }
 
-const API = {ADD_CARBS,RS_EST,COLON_STEP,colonOf,PSY,HEART,HEART_MAX,YOLK_G,YOLK_UNIT,FO_RATIO,MG_PRODUCTS,RA_MBW,mbwDay,needFor,CL_KCAL_MAX,cuLim,ELM,EXTRA,ZNCU_MIN,weekWithMeat,suppMeats,FO_PRODUCTS,setFo,OIL,OIL_STAGE,LA_TARGET,ZN_AVAIL_MIX,GLUTEN,fatGOf,SUPP_COVER,rankFoods,foodAllowed,GAP_W,pTarget,P_FLOOR,fatPctOf,CLIVER,applyStatus,dogCfg,STATUS,quarter,judge,evalTotals,suggestFor,WINDOW,SOFT,UNIT,RET,retOf,recSteps,fdDoses,EGG_WHITE,EGG_YOLK,recState,recFrac,recoveryStep,recoveryAdded,applyVegRamp,VEG_ROTATION,VEG_DAYS,VEG_MAX_RAW,vegRotNext,vegRotIndex,AAFCO,AAMAX,MARGIN,TARGET,LOW_FE,CU_SOFT,NM,WD,SUPP,fdPerDay,treatKcal,mealKcal,TREAT_KCAL_PER_G,meatAdvice,mainMeat,vegPer100,carbParts,eggPlan,RECOVERY_STEPS,applyRecovery,recoveryNext,
+const API = {ADD_CARBS,RS_EST,COLON_STEP,colonOf,colonPerG,colonLimit,elmAt,PSY,HEART,HEART_MAX,YOLK_G,YOLK_UNIT,FO_RATIO,MG_PRODUCTS,RA_MBW,mbwDay,needFor,CL_KCAL_MAX,cuLim,ELM,EXTRA,ZNCU_MIN,weekWithMeat,suppMeats,FO_PRODUCTS,setFo,OIL,OIL_STAGE,LA_TARGET,ZN_AVAIL_MIX,GLUTEN,fatGOf,SUPP_COVER,rankFoods,foodAllowed,GAP_W,pTarget,P_FLOOR,fatPctOf,CLIVER,applyStatus,dogCfg,STATUS,quarter,judge,evalTotals,suggestFor,WINDOW,SOFT,UNIT,RET,retOf,recSteps,fdDoses,EGG_WHITE,EGG_YOLK,recState,recFrac,recoveryStep,recoveryAdded,applyVegRamp,VEG_ROTATION,VEG_DAYS,VEG_MAX_RAW,vegRotNext,vegRotIndex,AAFCO,AAMAX,MARGIN,TARGET,LOW_FE,CU_SOFT,NM,WD,SUPP,fdPerDay,treatKcal,mealKcal,TREAT_KCAL_PER_G,meatAdvice,mainMeat,vegPer100,carbParts,eggPlan,RECOVERY_STEPS,applyRecovery,recoveryNext,
   pd,ds,addDays,weekStart,monthStart,monthEnd,range,weekdayOf,
   zero,addFood,addSupp,dayTotal,nrcKcal,finalize,defaultConfig,organTypeOfWeek,planWeek,planToLog,
   periodTotals,checkDay,checkPeriod,report,batchSheet,solveMain,per100};
@@ -1537,7 +1559,10 @@ function guard(k, what){
   return true;
 }
 // 改动记录：每次加量前存一份这只狗的设置，拉稀时可以一键退回
-const TRACK = ['addG','oilCapG','mgStage','tauPerDay','elmG','yolkWeek','cliver','heartG','psyG','vegMaxG','noVeg','noFish','status','foMax'];
+const TRACK = ['addG','oilCapG','mgStage','tauPerDay','elmG','elmRamp','swapped','colonOk','yolkWeek','cliver','heartG','psyG','vegMaxG','noVeg','noFish','status','foMax'];
+const NULLABLE = new Set(['oilCapG','elmRamp','colonOk']);
+const ELM_KEEP = {doctor:0, missy:1};     // 替换时滑榆皮最少留多少（Missy 先留 1 g，看便便再定）
+const SWAP_ELM = 1;                        // 每次替换减 1 g 滑榆皮
 function snapDog(k){ const d = ST.cfg.dogs[k], o = {}; for(const f of TRACK) o[f] = d[f]===undefined ? null : d[f]; return o; }
 function logChange(x, what, extra){
   const c = lastChange(x), same = c && c.d===TODAY && !c.retreat && !(extra && extra.retreat);
@@ -1787,6 +1812,13 @@ function mergeCfg(saved){
   // 2026-11-24 v11：便便记录、改动记录（可以一键退回）
   if(!out.v11){ out.v11 = true; out.stool = out.stool || {}; out.stoolSince = out.stoolSince || C.ds(new Date());
     out.changeLog = out.changeLog || Object.fromEntries(DOGS.map(k=>[k, out.changes && out.changes[k] ? [Object.assign({}, out.changes[k])] : []])); }
+  // 2026-11-24 v12：Missy 滑榆皮回到 5 g，每 2 天 +1 g（2.5 → 3.5 → 4.5 → 5）
+  if(!out.v12){ out.v12 = true; const m = out.dogs.missy, today = C.ds(new Date());
+    if((m.elmG||0) < 5){ const prev = {elmG:m.elmG||0, elmRamp:null};
+      m.elmRamp = {from:m.elmG||0, start:today, step:1, every:2}; m.elmG = 5;
+      const e = {d:today, what:'滑榆皮回到 5 g（每 2 天 +1 g）', prev:Object.assign({}, prev)};
+      out.changes = Object.assign({}, out.changes||{}, {missy:e});
+      out.changeLog = Object.assign({}, out.changeLog||{}); out.changeLog.missy = (out.changeLog.missy||[]).concat([e]); } }
   return out;
 }
 function lsGet(){ try{ return JSON.parse(localStorage.getItem('dmk2')) }catch(e){ return null } }
@@ -2396,6 +2428,14 @@ async function copyStool(){
   try{ await navigator.clipboard.writeText(tx); toast('已复制，贴到「拉稀记录」对话里'); }
   catch(e){ $('#sheetHost').innerHTML = `<div class="sheet-bg" data-close="1"><div class="sheet"><h3>长按全选复制</h3><textarea style="width:100%;height:60vh">${esc(tx)}</textarea><button class="btn wide" data-close="1">关闭</button></div></div>`; }
 }
+// 便便连续 3 天正常 → 自动把现在的大肠负荷记为耐受量（只往上记；拉稀退回时跟着改动记录一起退回）
+function autoColon(X){ let ch = false;
+  for(const k of DOGS){ const dg = ST.cfg.dogs[k], r = X.R.plan.dogs[k].days[TODAY], A = stoolAdvice(k);
+    if(!(r && r.colon) || A.st<3 || A.lv>0) continue;
+    const v = Math.round(r.colon.tot*10)/10;
+    if(dg.colonOk==null || v > dg.colonOk + 0.05){ dg.colonOk = v; dg.colonOkAt = TODAY; ch = true; } }
+  if(ch) saveCfg();
+  return ch; }
 function viewToday(X){
   OILNOW = X.R.plan.oil || null;
   const {logs} = X;
@@ -2615,13 +2655,17 @@ function reintroSteps(X, k){
   const dg = ST.cfg.dogs[k], P = X.R.plan, oil = P.oil || {}, drop = ST.cfg.oilMode==='drop';
   const full = (oil.full||{})[k]||0, cur = (oil.perDay||{})[k]||0, step = OIL_STEP[k];
   const st = dg.status||'normal', nextSt = st==='r20' ? 'r10' : 'normal';
-  const ef = dg.elmFull || dg.elmG || 0, addT = k==='missy' ? 15 : 30, mgT = k==='missy' ? 0.5 : 1;
+  const ef = dg.elmFull || dg.elmG || 0, mgT = k==='missy' ? 0.5 : 1, an = ST.cfg.addCarb || '红薯(生)';
+  const perA = C.colonPerG(F, an), perE = C.colonPerG(F, C.ELM);
+  const addT = k==='missy' ? Math.round(C.COLON_STEP[k]/perA) : 30, elmNow = C.elmAt(dg, TODAY);
+  const swapY = Math.round(SWAP_ELM*perE/perA), canSwap = (dg.addG||0)>0 && (dg.elmG||0) > ELM_KEEP[k]+1e-9;
   const L = [
-    {id:'elm', done:(dg.elmG||0) >= ef-1e-9, label:`滑榆皮回到 ${g1(ef)} g/天`, now:`现在 ${g1(dg.elmG||0)} g`, act:`data-setf="elmG" data-to="${ef}" data-what="滑榆皮回到全量"`},
+    {id:'elm', done:dg.swapped || (dg.elmG||0) >= ef-1e-9, label:`滑榆皮回到 ${g1(ef)} g/天（每 2 天 +1 g）`, now:`现在 ${g1(elmNow)} g`, act:`data-elmramp="${ef}"`},
     {id:'kcal', done:st==='normal', label:'热量回到正常', now:C.STATUS[st].n, act:`data-dstatus="${nextSt}"`, btn: st==='r20' ? '先到 −10%' : '回到正常'},
     {id:'oil', done:!drop || dg.oilCapG==null, label:'葡萄籽油加到全量', now:`现在 ${g1(cur)} / 全量 ${g1(full)} g，每次 +${step} g`, act:`data-oilcap="${Math.min(full, Math.round((cur+step)*100)/100)}"`, btn:`+${step} g`},
     {id:'mg', done:(dg.mgStage||0) >= mgT, label: mgT<1 ? '镁半量（早晚各一半）' : '镁加到全量', now: dg.mgStage ? (dg.mgStage<1?'现在半量':'全量') : '现在暂停', act:`data-mgstage="${mgT}"`},
-    {id:'add', done:(dg.addG||0) > 0, label:`加餐${short(ST.cfg.addCarb||'红薯(生)')} ${addT} g/天（生重，早晚各一半）`, now:'现在不吃', act:`data-setf="addG" data-to="${addT}" data-what="加餐${short(ST.cfg.addCarb||'')} ${addT} g"`},
+    {id:'add', done:(dg.addG||0) > 0, label:`加餐${short(an)} ${addT} g/天（生重，约 +${C.COLON_STEP[k]} g 大肠负荷）`, now:'现在不吃', act:`data-setf="addG" data-to="${addT}" data-what="加餐${short(an)} ${addT} g"`},
+    {id:'swap', done:!canSwap && (dg.addG||0)>0, label:`替换：滑榆皮 −${SWAP_ELM} g、${short(an)} +${swapY} g（大肠负荷不变）`, now:(dg.addG||0)>0 ? `现在滑榆皮 ${g1(dg.elmG||0)} g、${short(an)} ${g1(dg.addG||0)} g；滑榆皮最少留 ${ELM_KEEP[k]} g` : '先吃稳加餐', act:`data-swap="${swapY}"`, btn:'替换一步'},
   ];
   return L;
 }
@@ -2639,7 +2683,7 @@ function reintroHtml(X, k){
 function colonHtml(X, k){
   const r = X.R.plan.dogs[k].days[TODAY], cl = r && r.colon; if(!cl) return '';
   const dg = ST.cfg.dogs[k], ok = dg.colonOk, over = ok!=null && cl.tot > ok + C.COLON_STEP[k] + 0.05;
-  return `<div class="field"><span class="l">大肠负荷<small>纤维 ${g1(cl.fib)} g + 抗性淀粉约 ${g1(cl.rs)} g（估算）。${ok!=null?`记下的耐受量 ${g1(ok)} g/天${dg.colonOkAt?`（${md(dg.colonOkAt)}）`:''}；每次最多加 ${C.COLON_STEP[k]} g`:'便便稳定几天后点右边记下，以后加量不超过它 + '+C.COLON_STEP[k]+' g'}</small>${over?`<small style="color:var(--bad)">比耐受量多了 ${g1(cl.tot-ok)} g，超过一步，建议减一点</small>`:''}</span>
+  return `<div class="field"><span class="l">大肠负荷<small>纤维 ${g1(cl.fib)} g + 抗性淀粉约 ${g1(cl.rs)} g（估算，米饭放久了会算多一点）。${ok!=null?`耐受量 ${g1(ok)} g/天${dg.colonOkAt?`（${md(dg.colonOkAt)} 记）`:''}，上限 ${g1(ok + C.COLON_STEP[k])} g：超了程序自动少给加餐`:`便便连续 3 天正常后自动记下耐受量，之后每天不超过它 + ${C.COLON_STEP[k]} g`}</small>${r.addCut>0?`<small style="color:var(--warn)">今天${esc(short(r.addN||ST.cfg.addCarb))}少给 ${g1(r.addCut)} g，因为到上限了</small>`:''}${over?`<small style="color:var(--bad)">比耐受量多了 ${g1(cl.tot-ok)} g，超过一步</small>`:''}</span>
     <span style="text-align:right"><b class="num">${g1(cl.tot)}</b> g/天<br><button type="button" class="btn small ghost" data-colonok="${Math.round(cl.tot*10)/10}" data-who="${k}">便便稳定，记为耐受</button></span></div>`;
 }
 function oilHtml(X, k){
@@ -3206,6 +3250,7 @@ function render(){
   try{ X = compute(); }
   catch(e){ $('#view').innerHTML = `<section><div class="err">计算出错：${esc(e.message||e)}。请把这句话发给 Claude。</div></section>`; console.error(e); return; }
   LAST = X;
+  if(autoColon(X)){ try{ X = compute(); LAST = X; }catch(e){} }
   paintHdr(X);
   const html = UI.tab==='today'?viewToday(X):UI.tab==='prep'?viewPrep(X):viewDogs(X);
   // 记住展开的折叠块（按标题前几个字 + 第几个），重画后恢复，点按钮后不会自动收起
@@ -3350,8 +3395,8 @@ document.addEventListener('click', e=>{
   if(d.stoolundo && d.who){ const S = ST.cfg.stool = Object.assign({}, ST.cfg.stool||{}); const day = S[TODAY] = Object.assign({}, S[TODAY]||{});
     day[d.who] = (day[d.who]||[]).slice(0,-1); saveCfg(); render(); toast('撤销了最后一次'); return; }
   if(d.retreat){ const k = d.retreat, U = lastUndoable(k), dg = ST.cfg.dogs[k], parts = [];
-    if(U){ for(const f of TRACK){ const v = U.e.prev[f];
-        if(v===null){ if(f==='oilCapG') dg[f] = null; else if(f==='status') dg[f] = 'normal'; else if(f!=='foMax') dg[f] = typeof dg[f]==='boolean' ? false : 0; }
+    if(U){ for(const f of TRACK){ const v = U.e.prev[f]; if(v===undefined) continue;
+        if(v===null){ if(NULLABLE.has(f)) dg[f] = null; else if(f==='status') dg[f] = 'normal'; else if(f!=='foMax') dg[f] = typeof dg[f]==='boolean' ? false : 0; }
         else dg[f] = v; }
       const L = ST.cfg.changeLog[k].slice(); L[U.i] = Object.assign({}, L[U.i], {undone:TODAY}); ST.cfg.changeLog = Object.assign({}, ST.cfg.changeLog, {[k]:L}); parts.push('撤掉「'+U.e.what+'」'); }
     if(d.r20==='1'){ dg.status = 'r20'; parts.push('热量 −20%'); }
@@ -3365,6 +3410,13 @@ document.addEventListener('click', e=>{
     const nv = v==null ? full : v;
     if(nv > cur+0.01 && !guard(d.who, '葡萄籽油加到 '+g1(nv)+' g')) return render();
     dg.oilCapG = v; saveCfg(); render(); toast(`${DOGN[d.who]}：葡萄籽油每天 ${v==null?'全量':g1(v)+' g'}`); return; }
+  if(d.elmramp && d.who){ const dg = ST.cfg.dogs[d.who], to = parseFloat(d.elmramp), from = C.elmAt(dg, TODAY);
+    if(!guard(d.who, `滑榆皮回到 ${g1(to)} g（每 2 天 +1 g）`)) return render();
+    dg.elmRamp = to-from > 1 ? {from, start:TODAY, step:1, every:2} : null; dg.elmG = to; saveCfg(); render(); toast(`${DOGN[d.who]}：滑榆皮今天 ${g1(C.elmAt(dg,TODAY))} g，逐步回到 ${g1(to)} g`); return; }
+  if(d.swap && d.who){ const dg = ST.cfg.dogs[d.who], y = parseFloat(d.swap), an = short(ST.cfg.addCarb||'');
+    if(!guard(d.who, `替换：滑榆皮 −${SWAP_ELM} g、${an} +${y} g`)) return render();
+    dg.elmG = Math.max(ELM_KEEP[d.who], (dg.elmG||0) - SWAP_ELM); dg.elmRamp = null; dg.addG = (dg.addG||0) + y; dg.swapped = true;
+    saveCfg(); render(); toast(`${DOGN[d.who]}：滑榆皮 ${g1(dg.elmG)} g、${an} ${g1(dg.addG)} g`); return; }
   if(d.colonok && d.who){ const v = parseFloat(d.colonok); ST.cfg.dogs[d.who].colonOk = v>0 ? v : null; ST.cfg.dogs[d.who].colonOkAt = TODAY; saveCfg(); render(); toast(`${DOGN[d.who]}：记下耐受 ${g1(v)} g/天`); return; }
   if(d.setf && d.who){ const k = d.setf, v = parseFloat(d.to), dg = ST.cfg.dogs[d.who];
     if(v > (dg[k]||0) && !guard(d.who, d.what||k)) return render();
@@ -3391,6 +3443,7 @@ document.addEventListener('change', e=>{
     }
     render(); return;
   }
+  if(d.cfg==='carb' && t.value!==ST.cfg.carb && !guard('both', '主碳水换成'+short(t.value))){ render(); return; }
   if(d.cfg==='addCarb'){ const eat = DOGS.filter(k=>(ST.cfg.dogs[k].addG||0)>0);
     if(eat.length && t.value!==ST.cfg.addCarb && !eat.every(k=>guard(k, '加餐换成'+short(t.value)))){ render(); return; }
     ST.cfg.addCarb = t.value; saveCfg(); render(); return; }
@@ -3416,6 +3469,8 @@ document.addEventListener('change', e=>{
     }
     const GUARDF = {addG:'加餐'+short(ST.cfg.addCarb||''), elmG:'滑榆皮加量', heartG:'牛心', psyG:'洋车前子', vegMaxG:'菜泥加量'};
     if(GUARDF[d.dogf] && x > (ST.cfg.dogs[who][d.dogf]||0) && !guard(who, GUARDF[d.dogf]+' '+g1(x)+' g')){ render(); return; }
+    if(d.dogf==='elmG' && x < (ST.cfg.dogs[who].elmG||0) - 1) toast('滑榆皮一下减太多，纤维忽高忽低容易拉稀；没货的话尽量每天少 1 g 慢慢减', 6000);
+    if(d.dogf==='elmG') ST.cfg.dogs[who].elmRamp = null;
     ST.cfg.dogs[who][d.dogf] = x;
     if(d.dogf==='vegMaxG') ST.cfg.dogs[who].vegMaxAt = TODAY;
     if(d.dogf==='foMax') ST.cfg.dogs[who].foMaxAt = TODAY;
