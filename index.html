@@ -1546,8 +1546,17 @@ const DOGS = ['doctor','missy'];
 const DOGN = {doctor:'Doctor', missy:'Missy'};
 // 「一次只改一样」（2026-11-24）：每只狗加量、加新东西后观察 7 天。观察期内再加，先跳出确认；减量、停掉不拦
 const LOCK_DAYS = 7;
+// 观察期按改动类型分别定（2026-11-25）：同一天改了几样取最长；退回、减量不设观察期
+const LOCK_RULES = [[/红薯|芋头|土豆|山药|加餐|菜泥|主碳水|替换|洋车前子/,7], [/蛋黄|鸡肝|牛心|鸡蛋|鱼块/,7], [/油/,5], [/镁/,4], [/滑榆皮/,3], [/热量/,3], [/牛磺酸/,3]];
+function lockDays(what){ let n = 0; for(const [re,d] of LOCK_RULES) if(re.test(what||'')) n = Math.max(n, d); return n || LOCK_DAYS; }
+function elmRampEnd(dg){ const R = dg.elmRamp; if(!R || !R.start) return null; const steps = Math.ceil(Math.abs((dg.elmG||0) - R.from)/(R.step||1) - 1e-9); return C.addDays(R.start, (steps-1)*(R.every||2)); }
+// 观察到哪天（这天起可以加下一样）
+function lockEnd(k){ const c = lastChange(k); if(!c || c.retreat) return null; let end = C.addDays(c.d, lockDays(c.what));
+  if(/滑榆皮/.test(c.what)){ const re = elmRampEnd(ST.cfg.dogs[k]); if(re){ const e2 = C.addDays(re, 3); if(e2 > end) end = e2; } }
+  return end; }
 function lastChange(k){ return ((ST.cfg && ST.cfg.changes)||{})[k] || null; }
-function lockLeft(k){ const c = lastChange(k); if(!c) return 0; return Math.max(0, LOCK_DAYS - Math.round((C.pd(TODAY)-C.pd(c.d))/864e5)); }
+function lockLeft(k){ const e = lockEnd(k); if(!e) return 0; return Math.max(0, Math.round((C.pd(e)-C.pd(TODAY))/864e5)); }
+function lockTotal(k){ const c = lastChange(k), e = lockEnd(k); return (c && e) ? Math.round((C.pd(e)-C.pd(c.d))/864e5) : 0; }
 function guard(k, what){
   const ks = k==='both' ? DOGS : [k];
   const busy = ks.filter(x=>lockLeft(x)>0);
@@ -1556,7 +1565,7 @@ function guard(k, what){
     const key = k+'|'+what, A = UI.armed;
     if(!(A && A.key===key && Date.now()-A.t < 10000)){
       UI.armed = {key, t:Date.now()};
-      const msg = busy.map(x=>{ const c = lastChange(x); return `${DOGN[x]} ${md(c.d)} 刚改了「${c.what}」，观察到 ${md(C.addDays(c.d,LOCK_DAYS))}`; }).join('；');
+      const msg = busy.map(x=>{ const c = lastChange(x); return `${DOGN[x]} ${md(c.d)} 刚改了「${c.what}」，观察到 ${md(lockEnd(x))}`; }).join('；');
       toast(`${msg}。现在再加「${what}」，之后就分不清是哪一样。确定要改，10 秒内再点一次`, 9000);
       return false;
     }
@@ -1594,6 +1603,12 @@ function lastUndoable(k){ const L = (ST.cfg.changeLog||{})[k]||[]; for(let i=L.l
 function stoolAdvice(k){
   const lv = recentLv(k), st = stableDays(k), U = lastUndoable(k), ra = (ST.cfg.retreatAt||{})[k];
   const worstDay = stoolDay(k,TODAY)===lv ? TODAY : C.addDays(TODAY,-1);
+  const sk = (ST.cfg.skipAt||{})[k];
+  if(lv>=3 && !(ra && ra>=worstDay) && sk && sk>=worstDay){
+    const r20 = lv>=4 && (ST.cfg.dogs[k].status||'normal')!=='r20';
+    return {lv, st, cls:'warn', text:`已选择先不退。${U?`要退回的话会撤掉「${U.e.what}」`:''}`,
+      act: (U || r20) ? `<button type="button" class="btn small ghost" data-retreat="${k}" data-r20="${r20?1:0}">改主意了，退回</button>` : ''};
+  }
   if(lv>=3 && !(ra && ra>=worstDay)){
     const r20 = lv>=4 && (ST.cfg.dogs[k].status||'normal')!=='r20';
     return {lv, st, cls:'bad', text: U ? `${STOOL_N[lv]||'不正常'}：建议退回，撤掉最近加的「${U.e.what}」${r20?'，热量降到 −20%':''}。` : r20 ? `${STOOL_N[lv]}：建议热量降到 −20%（最近没有可撤的改动）。` : `${STOOL_N[lv]}：保持现在的量，不再加。`,
@@ -2408,10 +2423,10 @@ function keyInfo(D){
 function statusStrip(X){
   const rows = DOGS.map(k=>{ const dg = ST.cfg.dogs[k], r = X.R.plan.dogs[k].days[TODAY], cl = r && r.colon, left = lockLeft(k), c = lastChange(k);
     const st = dg.status||'normal', L = reintroSteps(X,k), nx = L.find(x=>!x.done), A = stoolAdvice(k);
-    const obs = c ? (left>0 ? `观察期第 ${LOCK_DAYS-left+1}/${LOCK_DAYS} 天` : '观察期已过') : '';
+    const obs = c && !c.retreat ? (left>0 ? `观察期第 ${lockTotal(k)-left+1}/${lockTotal(k)} 天` : '观察期已过') : '';
     return `<div class="srow"><div><b>${DOGN[k]}</b> <span class="note">${st==='normal'?'热量正常':C.STATUS[st].n}${obs?' · '+obs:''}</span></div>
       <div class="note">大肠负荷 <b class="num">${cl?g1(cl.tot):'—'}</b> g/天${dg.colonOk!=null?`（耐受 ${g1(dg.colonOk)} g）`:''}${dg.oilCapG!=null?` · 油 ${g1(X.R.plan.oil.perDay[k])} g（逐步加）`:''}${r&&r.addG>0?` · ${esc(short(r.addN))}`:''}</div>
-      <div class="note">${nx ? `下一步：${esc(nx.label)}${left>0?`，${md(C.addDays(c.d,LOCK_DAYS))} 起`:A.st>=3&&A.lv===0?'，可以加了（在「计划和设置」页）':'，等便便连续 3 天正常'}` : '加回计划都完成了'}</div></div>`; }).join('');
+      <div class="note">${nx ? `下一步：${esc(nx.label)}${left>0?`，${md(lockEnd(k))} 起`:A.st>=3&&A.lv===0?'，可以加了（在「计划和设置」页）':'，等便便连续 3 天正常'}` : '加回计划都完成了'}</div></div>`; }).join('');
   return `<section><div class="card strip">${rows}</div></section>`;
 }
 function stoolCard(X){
@@ -2679,12 +2694,14 @@ function reintroSteps(X, k){
 function reintroHtml(X, k){
   const L = reintroSteps(X, k), nx = L.find(x=>!x.done), left = lockLeft(k), c = lastChange(k), A = stoolAdvice(k);
   const ready = left===0 && A.st>=3 && A.lv===0;
-  const why = left>0 ? `${md(C.addDays(c.d,LOCK_DAYS))} 起` : A.lv>0 ? '最近便便不正常，先别加' : A.st<3 ? `便便连续 3 天正常后（现在 ${A.st} 天）` : '';
+  const why = left>0 ? `${md(lockEnd(k))} 起` : A.lv>0 ? '最近便便不正常，先别加' : A.st<3 ? `便便连续 3 天正常后（现在 ${A.st} 天）` : '';
   const H = ((ST.cfg.changeLog||{})[k]||[]).slice(-8).reverse();
   return `<div class="plan" style="margin:6px 0 10px"><b>加回计划</b>
-    <p class="note" style="margin:4px 0">${c ? `上一次改动：${md(c.d)} ${esc(c.what)}${left>0?`，观察期还剩 <b>${left}</b> 天`:'，观察期已过'}。` : ''}每一步要等：观察期 7 天过了，并且便便连续 3 天正常。</p>
+    <p class="note" style="margin:4px 0">${c ? `上一次改动：${md(c.d)} ${esc(c.what)}${c.retreat?'':left>0?`，观察到 ${md(lockEnd(k))}（还剩 <b>${left}</b> 天）`:'，观察期已过'}。` : ''}每一步要等：观察期过了（热量、滑榆皮、牛磺酸 3 天，镁 4 天，油 5 天，红薯等可发酵碳水和新食物 7 天），并且便便连续 3 天正常。</p>
     <ol class="gfoods" style="margin:4px 0 0">${L.map(x=>`<li style="${x.done?'opacity:.55':''}">${x.done?'✓ ':''}${esc(x.label)}${x.done?'':`<span class="note">（${esc(x.now)}）</span>`}${x===nx?`<br><button type="button" class="btn small${ready?'':' ghost'}" ${x.act} data-who="${k}"${ready?'':' disabled'}>${ready?esc(x.btn||'现在加'):esc(why)}</button>`:''}</li>`).join('')}</ol>
-    ${H.length?`<details class="mini"><summary>改动记录</summary><ul class="hist" style="margin:4px 0;padding-left:18px">${H.map(e=>`<li>${md(e.d)} ${esc(e.what)}${e.undone?`（${md(e.undone)} 退回）`:''}</li>`).join('')}</ul></details>`:''}
+    ${H.length?`<details class="mini" open><summary>改动记录</summary><ul class="hist" style="margin:4px 0;padding-left:18px">${H.map(e=>{ const i = ((ST.cfg.changeLog||{})[k]||[]).indexOf(e);
+      return `<li>${md(e.d)} ${esc(e.what)}${e.undone?`（${md(e.undone)} 退回）`:''}${e.prev && !e.undone && !e.retreat ? ` <button type="button" class="btn small ghost" data-undo="${i}" data-who="${k}">撤销这次</button>` : ''}</li>`; }).join('')}</ul>
+    <p class="note" style="margin:2px 0 0">撤销某一次，会退回到那次改动之前的设置；在它之后的改动也一起撤销。</p></details>`:''}
   </div>`;
 }
 function colonHtml(X, k){
@@ -3401,15 +3418,18 @@ document.addEventListener('click', e=>{
     const e = L[L.length-1] = Object.assign({}, L[L.length-1]); e[d.stoolflag] = !e[d.stoolflag]; saveCfg(); render(); return; }
   if(d.stoolundo && d.who){ const S = ST.cfg.stool = Object.assign({}, ST.cfg.stool||{}); const day = S[TODAY] = Object.assign({}, S[TODAY]||{});
     day[d.who] = (day[d.who]||[]).slice(0,-1); saveCfg(); render(); toast('撤销了最后一次'); return; }
-  if(d.retreat){ const k = d.retreat, U = lastUndoable(k), dg = ST.cfg.dogs[k], parts = [];
-    if(U){ for(const f of TRACK){ const v = U.e.prev[f]; if(v===undefined) continue;
+  if(d.retreat || (d.undo!=null && d.who)){ const k = d.retreat || d.who, dg = ST.cfg.dogs[k], parts = [];
+    let U = lastUndoable(k);
+    if(d.undo!=null){ const i = +d.undo, e = ((ST.cfg.changeLog||{})[k]||[])[i]; U = (e && e.prev && !e.undone) ? {e, i} : null; if(!U) return; }
+    if(U){
+      const LL = ST.cfg.changeLog[k].slice(); for(let j=U.i+1;j<LL.length;j++) if(!LL[j].retreat && !LL[j].undone) LL[j] = Object.assign({}, LL[j], {undone:TODAY}); ST.cfg.changeLog = Object.assign({}, ST.cfg.changeLog, {[k]:LL}); for(const f of TRACK){ const v = U.e.prev[f]; if(v===undefined) continue;
         if(v===null){ if(NULLABLE.has(f)) dg[f] = null; else if(f==='status') dg[f] = 'normal'; else if(f!=='foMax') dg[f] = typeof dg[f]==='boolean' ? false : 0; }
         else dg[f] = v; }
       const L = ST.cfg.changeLog[k].slice(); L[U.i] = Object.assign({}, L[U.i], {undone:TODAY}); ST.cfg.changeLog = Object.assign({}, ST.cfg.changeLog, {[k]:L}); parts.push('撤掉「'+U.e.what+'」'); }
     if(d.r20==='1'){ dg.status = 'r20'; parts.push('热量 −20%'); }
     logChange(k, '退回：'+parts.join('，'), {retreat:true, prev:null});
     ST.cfg.retreatAt = Object.assign({}, ST.cfg.retreatAt||{}, {[k]:TODAY}); saveCfg(); render(); toast(`${DOGN[k]}：${parts.join('，')}`); return; }
-  if(d.retreatskip){ ST.cfg.retreatAt = Object.assign({}, ST.cfg.retreatAt||{}, {[d.retreatskip]:TODAY}); saveCfg(); render(); return; }
+  if(d.retreatskip){ ST.cfg.skipAt = Object.assign({}, ST.cfg.skipAt||{}, {[d.retreatskip]:TODAY}); saveCfg(); render(); return; }
   if(d.stoolcopy){ copyStool(); return; }
   if(d.addbatchnew){ UI.addNew = true; render(); return; }
   if(d.oilcap!=null && d.who){ const dg = ST.cfg.dogs[d.who], full = ((LAST && LAST.R.plan.oil && LAST.R.plan.oil.full)||{})[d.who]||0, cur = dg.oilCapG==null ? full : dg.oilCapG;
